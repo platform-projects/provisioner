@@ -1,0 +1,3 @@
+﻿Space Id,Label,Disk,Memory,Template,Force,User 1,User 2,User 3,etc
+NEWSPACE,New Space,1,.5,FINANCE_DATA,,mark.greynolds@sap.comx,xben.benavides@sap.com,lmco_knocker,
+SECOND SPACE,,,.5,,true,mark.greynolds@sap.com,ben.benavides@sap.com,,
