@@ -1,5 +1,4 @@
 import argparse
-import pathlib
 
 dwc_parser = None
 

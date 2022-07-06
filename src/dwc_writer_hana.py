@@ -1,7 +1,7 @@
 import logging
 from distutils.command.config import config
 
-#from hdbcli import dbapi
+from hdbcli import dbapi
 
 import dwc_config as config
 

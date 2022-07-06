@@ -3,7 +3,6 @@ from os.path import exists
 
 import requests
 import urllib3
-import urllib.parse
 import subprocess
 import logging
 import time

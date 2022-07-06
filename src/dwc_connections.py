@@ -1,4 +1,3 @@
-import argparse
 import logging
 
 import dwc_config as config
