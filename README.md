@@ -1,18 +1,20 @@
-# SAP Data Warehouse Cloud Provisioning
+# SAP Data Warehouse Cloud Provisioner
 
 ## Description
 This example shows how to programatically create, update and delete SAP Data Warehouse Cloud artifacts. It is written in Python and demonstrates how to:
 - create and remove spaces with a simple command line
-- create and numerous spaces using a CSV file
+- create and remove lists of spaces using a CSV file
 - create and remove connections in one or many spaces
 - create and remove shares from one space to another
 - generate a set of HANA tables for analytics
 
+
 ## Requirements
 - SAP Data Warehouse Cloud administrator access, i.e., user with <span style="color: green">**DW&nbsp;Administrator**</span> privilege
 - [Python version 3.8](https://www.python.org/downloads/ "download") or higher
-- [Git version ?](https://git.com "download")
-- Optional: SAP HANA command line interface (hdbcli)
+- [Git (latest version)](https://git.com "download")
+- Optional: SAP HANA command line interface (hdbcli)<br>
+_Note_: there are compatiblility issues with hdbcli on Apple M1 hardware
 - Optional: access to an SAP HANA (on-prem or cloud) schema
 
 ### Additional requirements for development
@@ -20,12 +22,34 @@ This example shows how to programatically create, update and delete SAP Data War
 - Python linting as described [here](https://code.visualstudio.com/docs/python/linting)
 
 ## Check your environment
-python -version
-or
-python3 -version
+### Python
+Ensure that you have a valid Python 3.8 (or higher) version installed and available at the command line.  Use one of the following command to verify.
 
+<span style="color: gray">_Note_: the latest versions of Python include both <span style="color: white">_python_</span> and <span style="color: white">_python3_</span> commands.</span>
+
+
+```python -version```
+<br>or<br>
+```python3 -version```
+
+```
+ubuntu@ip-17-1-3-11:~$ python3 --version
+Python 3.10.4
+ubuntu@ip-17-1-3-11:~$
+```
+### Git (local)
+```git --version```
+
+```
+ubuntu@ip-17-1-3-11:~$ git --version
+git version 2.34.1
+ubuntu@ip-17-1-3-11:~$        
+```
+### Configure HANA allow list (optional)
+Set allow list for Cloud HANA connection
+![SAP Data Warehouse Cloud - IP Allowlist](images/allowlist.png)
 ## Download and Installation
-Clone or download this repository to a for example to /users/c:\devpath\dwc-provisioning.  These commands are similar
+Clone or download this repository to a directory.a for example to /users/c:\devpath\dwc-provisioning.  These commands are similar
 for all major operating systems, i.e., Linux, Windows, and
 Mac OS X.
 
@@ -39,7 +63,6 @@ c:\> cd c:\devpath\dwc-provisioning
 Generate git key
 $ ssh-keygen -t rsa -b 4096
 
-Set allow list for Cloud HANA connection
 curl 
 Install the Python virtual environment tool.
 ```
@@ -78,7 +101,10 @@ Install additional Python packages if this installation is used for development:
 ```
 
 
-### Configuration
+## Configuration
+To use the provisioner, credentials for SAP Data Warehouse Cloud and optionally for a HANA schema.
+
+python3 
 An admin-user is needed with the following privileges:
 - system privilege CREATE SCHEMA (grantable to other users and roles)
 - system privilege USER ADMIN
