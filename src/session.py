@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 from os.path import exists
 
 import requests
+import urllib
 import urllib3
 import subprocess
 import logging
@@ -11,8 +12,8 @@ import re
 import os
 import copy
 
-import dwc_config as config
-import dwc_utility as utility
+import session_config as config
+import utility as utility
 
 logger = config.logging.getLogger("session")
 
@@ -26,6 +27,7 @@ class DWCSession:
         self.urls = { "authenticate"      : "#dwc_url/dwaas-ui/index.html",
                       "logon"             : "#dwc_url/sap/fpa/services/rest/epm/session?action=logon",
                       "spaces"            : "#dwc_url/dwaas-core/repository/spaces",
+                      "spaces_resources"  : "#dwc_url/dwaas-core/resources/spaces",
                       "space"             : "#dwc_url/dwaas-core/api/v1/content?space={space_name}&spaceDefinition=true",
                       "shares"            : "#dwc_url/dwaas-core/repository/shares",
                       "connections"       : "#dwc_url/dwaas-core/repository/remotes?space_ids={space_id}&inSpaceManagement=true&details=",
@@ -263,7 +265,15 @@ class DWCSession:
         # is a member of the space.
 
         self.spaces_cache = self.get_json('spaces')["results"]
-
+        self.spaces_resources_cache = self.get_json('spaces_resources')
+        
+        # Enrich the spaces with consumption information
+        for space in self.spaces_cache:
+            if space["name"] in self.spaces_resources_cache:
+                space["resources"] = self.spaces_resources_cache[space["name"]]
+            else:
+                space["resources"] = None
+            
         return self.spaces_cache
 
     def get_space_id(self, space_name):
@@ -328,7 +338,14 @@ class DWCSession:
     def get_space(self, space_name):
         fixed_space_name = self.fix_space_name(space_name)
 
-        space = self.get_json("space", { "space_name" : fixed_space_name })
+        # Lookup the SPACE name to ensure it exists before looking up the details.
+        
+        space_list = self.get_space_list(space_name, wildcard=False)
+        
+        if len(space_list) == 1:
+            space = self.get_json("space", { "space_name" : fixed_space_name })
+        else:
+            space = None
 
         return space
 
@@ -478,7 +495,7 @@ class DWCSession:
 
         return self.delete(space_url)
 
-    def get_users(self, users=None, force=False, wildcard=True):
+    def get_users(self, users_search=None, force=False, wildcard=True):
         '''
         Get the list of user from the tenant as a deep copy.  For repeat calls,
         always start with a cached user list.  Users are considered non-mutable
@@ -495,34 +512,36 @@ class DWCSession:
 
         # If no search list was given, return the entire list.
 
-        if users is None:
+        if users_search is None:
             return copy.deepcopy(self.users_cache)  # Return a mutable list
 
         # We want to search a list of users, convert a simple string into a list
 
-        if isinstance(users, str):
-            users = [ users ]
+        if isinstance(users_search, str):
+            users_search = [ users_search ]
 
         # Make sure we have a list with at least one member.
 
-        if not isinstance(users, list):
+        if not isinstance(users_search, list):
             logger.warning("get_users: invalid users parameter is not a list")
             return []
 
-        if len(users) == 0:
+        if len(users_search) == 0:
             return copy.deepcopy(self.users_cache)
 
         # Setup the mutable return list.
 
         return_users = []
 
-        for user in self.users_cache:
-            for pattern in users:
+        for pattern in users_search:
+            for user in self.users_cache:
                 if wildcard:
                     if str(user).upper().find(pattern.upper()) != -1:
                         return_users.append(copy.deepcopy(user))
                 else:
-                    if user["bob"] == pattern or user["bob"] == pattern:
+                    samlUserName = user["metadata"]["samlUserMapping"][0]["samlUserName"]
+                    
+                    if user["userName"].upper() == pattern.upper() or user["parameters"]["EMAIL"].upper() == pattern.upper():
                         return_users.append(copy.deepcopy(user))
                         break  # Non-wildcard pattern has been matched, stop looking
 
@@ -539,20 +558,34 @@ class DWCSession:
 
         return None
 
-    def get_dbuser_objects(self, dbuser):
+    def get_dbuser_objects(self, space_name, dbuser_hashtags):
 
-        space_name = self.get_space_name(dbuser)
+        space_name = self.get_space_name(space_name)
 
         if space_name is None:
             return None
 
-        dbuser_path = '[{"id":"{}}","type":"schema"}]'
-        dbuser_query = self.get_dwc_url() + '/dwaas-core/datasources/getchildren?path={}&space={}'
+        if isinstance(dbuser_hashtags, str):
+            dbuser_hashtags = [ dbuser_hashtags ]
+            
+        search_path = []
+        for dbuser_hashtag in dbuser_hashtags:
+            search_path.append({ "id" : dbuser_hashtag, "type" : "schema"})
+                               
+        dbuser_path = urllib.parse.quote(str(search_path).replace("'", '"'))
+        
+        dbuser_query = f'#dwc_url/dwaas-core/datasources/getchildren?path={dbuser_path}&space={space_name}'
 
+        # To simplify the code, simply punch this URL into the standard list.
         if "dbuser_objects" not in self.urls:
-            self.urls["dbuser_objects"] = db_objects_query
+            self.urls["dbuser_objects"] = dbuser_query
 
-        return self.get_json("dbuser_objects")
+        objects = self.get_json("dbuser_objects")
+        
+        if "items" in objects:
+            return objects["items"]
+        else:
+            return []
 
     def get_data_builder_objects(self, space):
         space_name = self.get_space_name(space)
@@ -599,6 +632,33 @@ class DWCSession:
             self.urls["builder_objects"] = db_objects_query
 
         return self.get_json("builder_objects")
+
+    def get_business_builder_objects(self, space_name):
+        business_builder_query = {
+            "SpaceID": space_name,
+            "Sort": { "Column": "Title", "isDescending": False },
+            "HideEmptyPackages": False,
+            "PackageSelectionAllowed": True,
+            "currentPackage": -1,
+            "filterData": [],
+            "searchData": [],
+            "typeOrder": [
+                { "EntityType": "CubeSource",             "index": 0 },
+                { "EntityType": "ResponsibilityScenario", "index": 1 },
+                { "EntityType": "Business Semantic",      "index": 2 },
+                { "EntityType": "MasterDataSource",       "index": 3 },
+                { "EntityType": "KPI Model",              "index": 4 },
+                { "EntityType": "Package",                "index": 5 },
+                { "EntityType": "Perspective",            "index": 6 }
+            ]
+        }
+
+        results = self.post(self.get_url("businessbuilder"), str(business_builder_query).replace("'", '"'))
+        
+        if results is None:
+            return []
+        
+        return results
 
     def get_remote_tables(self, space_name):
         results = self.get_json("remotetables", { "space_name" : space_name });
@@ -749,8 +809,6 @@ class DWCSession:
         return results
 
     def post(self, url, data=None):
-        logger.debug("ENTERING: post()")
-
         t0 = time.perf_counter()
 
         self.set_header("Content-Type", "application/json")
@@ -764,6 +822,7 @@ class DWCSession:
 
         if response.status_code >= 400:
             logger.warning("post to {} - error {}.".format(url, response.status_code))
+            return None
 
         return response
 

@@ -3,16 +3,16 @@ import json
 import os
 import sys
 
-import dwc_config as config
-import dwc_utility as utility
-import dwc_writer_hana as hana
-import dwc_writer_csv as csv
+import session_config as config
+import utility as utility
+import writer_hana as hana
+import writer_csv as csv
 
 logger = logging.getLogger('writer')
         
 def write_list(list_data, args=None):
     if list_data is None or len(list_data) == 0:
-        logger.error(f'invalid list passed to write_list: target {target}.')
+        logger.error(f'invalid list passed to write_list: target {args.format}.')
         return
 
     if args.format == "hana":
@@ -28,6 +28,9 @@ def write_list(list_data, args=None):
             args.output_handle = sys.stdout
 
         write_list_text(list_data, args)
+        
+        if args.output is not None:
+            args.output_handle.close()
     else:
         logger.warn(f"Invalid target for output: {format}")
 

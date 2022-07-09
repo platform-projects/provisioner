@@ -1,8 +1,8 @@
 import logging
 
-import dwc_config as config
-import dwc_utility as utility
-import dwc_writer as writer
+import session_config as config
+import utility as utility
+import writer as writer
 
 logger = logging.getLogger("connections")
 
@@ -21,6 +21,7 @@ def process(connection_args):
 def connections_create(connection_args):
     utility.start_timer("connections_create")
 
+    # See if the space exists.
     space_list = config.dwc.get_space_list(connection_args.targetSpace)
 
     if len(space_list) == 0:
@@ -34,10 +35,10 @@ def connections_create(connection_args):
 def connections_delete(connection_args):
     utility.start_timer("connections_delete")
 
-    space_list = config.dwc.get_space_list(connection_args.targetSpace)
+    space_list = config.dwc.get_space_list(connection_args.targetSpace, False)
 
     if len(space_list) == 0:
-        logger.warn("connections_create: no spaces found to create connection")
+        logger.warn("connections_delete: no spaces found")
     else:
         for space in config.dwc.get_space_list(space_list):
             config.dwc.delete_connection(space["name"], connection_args.connectionName)
@@ -52,7 +53,7 @@ def connections_list(connection_args):
     space_list = config.dwc.get_space_list(connection_args.sourceSpace, connection_args.wildcard)
 
     if len(space_list) == 0:
-        logger.warn("connections_create: no spaces found to create connection")
+        logger.warn("connections_list: no spaces found to list")
     else:
         list_of_connections = []
 
@@ -63,6 +64,7 @@ def connections_list(connection_args):
                 for connection in connections:
                     list_of_connections.append(connection)
 
-    writer.write_list(list_of_connections, args=connection_args)
+        writer.write_list(list_of_connections, args=connection_args)
 
     logger.debug(utility.log_timer("connections_list", "completed."))
+    

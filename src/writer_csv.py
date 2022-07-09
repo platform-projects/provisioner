@@ -1,6 +1,6 @@
 import logging
 
-import dwc_config as config
+import session_config as config
 
 logger = logging.getLogger("csv")
 

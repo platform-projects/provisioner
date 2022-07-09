@@ -1,9 +1,8 @@
 import logging
-from distutils.command.config import config
 
-from hdbcli import dbapi
+#from hdbcli import dbapi
 
-import dwc_config as config
+import session_config as config
 
 logger = logging.getLogger("hana")
 
@@ -26,13 +25,13 @@ def hana_connect():
     logger.debug("Entering hana_connect...")
 
     if conn is None:
-        conn = dbapi.connect(
-                    address=hana_config.hana_address,
-                    port=hana_config.hana_port,
-                    user=hana_config.hana_user,
-                    password=hana_config.hana_password,
-                    encrypt=hana_config.hana_encrypt,
-                    sslValidateCertificate=hana_config.hana_sslValidateCertificate)
+        conn = dbapi.connect(address=config.get_config_param("hana", "hana_host"),
+                             port=config.get_config_param("hana", "hana_port"),
+                             user=config.get_config_param("hana", "hana_user"),
+                             password=config.get_config_param("hana", "hana_password"),
+                             encrypt=config.get_config_param("hana", "hana_encrypt"),
+                             sslValidateCertificate=config.get_config_param("hana", "hana_sslValidateCertificate")
+                            )
         
         cursor = conn.cursor()
 

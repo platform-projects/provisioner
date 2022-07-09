@@ -12,15 +12,15 @@ import os
 import sys
 import logging
 
-import dwc_config as config
-import dwc_cmdparse as cmdparse
-import dwc_connections as connections
-import dwc_spaces as spaces
-import dwc_shares as shares
-import dwc_users as users
-import dwc_utility as utility
+import session_config as config
+import cmdparse as cmdparse
+import connections as connections
+import spaces as spaces
+import shares as shares
+import users as users
+import utility as utility
 
-from dwc_session import DWCSession
+from session import DWCSession
 
 logger = logging.getLogger("dwc_tool")
 
@@ -29,21 +29,21 @@ if __name__ == '__main__':
         sys.stderr.write("You need python 3.8 or later to run this script\n")
         sys.exit(1)
 
-    # Track how long this process runs across any/all commands.
+    # Track how long this process runs across all commands.
     utility.start_timer("dwc_tool")
             
     # Capture the command line arguments.
-    # Note: Remove this script file name before parsing.
+    # Note: The args this script names as the first param - remove it.
     args = cmdparse.parse(sys.argv[1:])  
 
-    # Make sure the configuration is present and valid.    
+    # Make sure our configuration is present and valid.    
     config.ensure_config(args)
 
     # For the configuration operation, there's nothing else to do.
     if args.command == "config":
         sys.exit(0)
         
-    # Build the full list of commands, including commands
+    # Build the full list of commands, including multiple commands
     # coming from a script.
     
     commands = []  # We love lists to loop over.
@@ -58,7 +58,7 @@ if __name__ == '__main__':
             logger.fatal("Script {} not found.".format(args.filename))
             sys.exit(1)
 
-        # Read all the commands from the script - stop when if we
+        # Read all the commands from the script - stop if we
         # encounter the "exit" command.  Also, skip any "config"
         # commands.
 
@@ -85,7 +85,7 @@ if __name__ == '__main__':
             logger.debug("..script cmd: {}".format(script_args))
 
             # Add this command to the list we will process later.  Go ahead
-            # and parse the commands to get/verify the arguments.
+            # and parse the commands to verify the arguments.
             script_args = script_args.split(" ")
             commands.append(cmdparse.parse(script_args))
 

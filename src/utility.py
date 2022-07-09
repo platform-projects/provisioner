@@ -4,7 +4,7 @@ import os
 import logging
 from pathlib import Path
 
-import dwc_config as config
+import session_config as config
 
 logger = logging.getLogger("utility")
 
@@ -34,7 +34,7 @@ def start_timer(name):
     set_timer(name)
 
 def log_timer(name, msg):
-    return "{} - elapsed {}.".format(msg, get_timer(name))
+    return "{} - elapsed {:.2f}.".format(msg, get_timer(name))
 
 def write_json(json_name, object):
     """

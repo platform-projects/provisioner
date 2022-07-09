@@ -1,10 +1,12 @@
 import logging
 import os
+import copy
 
-import dwc_cmdparse as cmdparse
-import dwc_config as config
-import dwc_utility as utility
-import dwc_writer as writer
+import cmdparse as cmdparse
+import constants as constants
+import session_config as config
+import utility as utility
+import writer as writer
 
 logger = logging.getLogger("spaces")
 
@@ -44,71 +46,73 @@ def spaces_create(space_args):
     # Set defaults for disk and ram.  These can be overridden by
     # a template or by command line values (--disk, --memory).
 
-    assigned_storage = config.CONST_DEFAULT_SPACE_STORAGE
-    assigned_ram = config.CONST_DEFAULT_SPACE_MEMORY
+    assigned_storage = constants.CONST_DEFAULT_SPACE_STORAGE
+    assigned_ram = constants.CONST_DEFAULT_SPACE_MEMORY
 
-    # Check to see if the space already exists.
-
-    space_def = config.dwc.get_space(space_name)
-
-    # If the user specified "--force" this may be overridden
+    # If the user specified the "--force" command line option, this may be overridden
     delete_flag = False
 
-    # Check to see if the space objects (or empty object) as the
+    # Check to see if the space already exists.
+    space_def = config.dwc.get_space(space_name)
+
+    # Check to see if the space objects (or empty object) has the
     # space_name as a dictionary object - this only valid when
     # a real space is returned.
 
-    if space_name in space_def:
+    if space_def is not None and space_name in space_def:
         if space_args.force == False:
-            logger.warning(f'Create space: {space_args.spaceName} already exists - specify force.')
+            logger.warning(f'spaces_create: space {space_args.spaceName} already exists - specify force.')
             return
         else:
             delete_flag = True
 
-    # If a template was specified, make sure it exists.  If there is no template,
+    # If a template was specified, make sure it exists.  If there is no template name,
     # compose a minimal space defintion.
 
     if space_args.template is None:
         new_space_def = {}
-        new_space_def[space_name] = {}
-        new_space_def[space_name]["spaceDefinition"] = {}
+        new_space_def[space_name] = copy.deepcopy(constants.default_space_definition)
+        
         new_space_def[space_name]["spaceDefinition"]["label"] = space_label
         new_space_def[space_name]["spaceDefinition"]["assignedStorage"] = assigned_storage
         new_space_def[space_name]["spaceDefinition"]["assignedRam"] = assigned_ram
-        new_space_def[space_name]["spaceDefinition"]["enableDataLake"] = False
-        new_space_def[space_name]["spaceDefinition"]["priority"] = 5
+
         new_space_def[space_name]["spaceDefinition"]["members"] = []   # We will add members shortly.
     else:
-        template_def = config.dwc.get_space(space_args.template)
+        # Make sure the template space is in the tenant.
+        template_spaces = config.dwc.get_space_list(space_args.template, wildcard=False)
 
-        if template_def is None:
-            logger.error("Create space {}: template space {} not found.".format(space_args.space, space_args.template))
+        if template_spaces is None or len(template_spaces) != 1:
+            logger.error("spaces_create: create space {} - template space {} - invalid.".format(space_args.spaceName, space_args.template))
             return
 
+        template = config.dwc.get_space(template_spaces[0]["name"])
+        
         new_space_def = {}
         new_space_def[space_name] = {}
 
         # Copy the space definition from the template
-        new_space_def[space_name]["spaceDefinition"] = template_def[space_args.template]["spaceDefinition"]
+        new_space_def[space_name]["spaceDefinition"] = template[space_args.template]["spaceDefinition"]
         new_space_def[space_name]["spaceDefinition"]["label"] = space_label
         new_space_def[space_name]["spaceDefinition"]["members"] = []   # We will add members shortly
 
-    # Set values if there are command line arguments for 
-    # disk and memory.
+    # Set values if there are command line arguments for disk and memory. Command line 
+    # arguments for disk/memory override default or template values.
     if space_args.disk is not None:
-        assigned_storage = int(float(space_args.disk) * config.CONST_GIGABYTE)
+        assigned_storage = int(float(space_args.disk) * constants.CONST_GIGABYTE)
         new_space_def[space_name]["spaceDefinition"]["assignedStorage"] = assigned_storage
 
     if space_args.memory is not None:
-        assigned_ram = int(float(space_args.memory) * config.CONST_GIGABYTE)
+        assigned_ram = int(float(space_args.memory) * constants.CONST_GIGABYTE)
         new_space_def[space_name]["spaceDefinition"]["assignedRam"] = assigned_ram
 
     # Add members to the space definition.
 
     users = config.dwc.get_users(space_args.users)
 
+    # Let the user know they didn't specify valid users for the space.
     if len(users) == 0:    
-        logger.warning("Create space {} found no matching DWC users.".format(space_name))
+        logger.warning("spaces_create: create space {} found no matching DWC users.".format(space_name))
         
     for user in users:
         new_space_def[space_name]["spaceDefinition"]["members"].append(
@@ -118,7 +122,7 @@ def spaces_create(space_args):
     # If we need to force the creation of the space, delete the existing space first.
 
     if delete_flag:
-        logger.warning("Create space: {} forced recreate - deleting space.".format(space_name))
+        logger.info(f"spaces_create: {space_name} forced create - deleting existing space.")
 
         config.dwc.spaces_delete_cli(space_name)
 
@@ -126,13 +130,18 @@ def spaces_create(space_args):
 
     config.dwc.spaces_create_cli('create', new_space_def)
 
-    logger.debug(utility.log_timer("spaces_create", "Space {} creation complete.".format(space_name)))
+    logger.info(utility.log_timer("spaces_create", f"spaces_create: {space_name} creation complete."))
 
 def spaces_delete(space_args):
     utility.start_timer("spaces_delete")
 
-    for space_name in config.dwc.get_space_names(space_args.spaceName):
-        config.dwc.spaces_delete_cli(space_name)
+    space_list = config.dwc.get_space_names(space_args.spaceName)
+    
+    if len(space_list) == 0:
+        logger.warning("spaces_delete: no spaces found to delete")
+    else:
+        for space_name in space_list:
+            config.dwc.spaces_delete_cli(space_name)
 
     logger.debug(utility.log_timer("spaces_delete"))
 
@@ -148,23 +157,9 @@ def process_bulk(space_args):
     with open(space_args.filename, "r") as file:
         bulk_text = file.readlines()
 
-    # Remove the header line by clipping starting at the skip value.
+    # Remove the header line by clipping starting at the skip value (default=1).
     bulk_text = bulk_text[int(space_args.skip):]
-
-    if space_args.bulk_subcommand == "create":
-        spaces_bulk_create(space_args, bulk_text)
-    elif space_args.bulk_subcommand == "delete":
-        spaces_bulk_delete(space_args, bulk_text)
-
-def spaces_bulk_create(space_args, bulk_text):
-    CONST_SPACE_NAME = 0
-    CONST_LABEL = 1
-    CONST_DISK = 2
-    CONST_MEMORY = 3
-    CONST_TEMPLATE = 4
-    CONST_FORCE = 5
-    CONST_USERS = 6
-
+    
     for text in bulk_text:
         text = text.strip()
 
@@ -172,92 +167,86 @@ def spaces_bulk_create(space_args, bulk_text):
         if text[0] == '#':
             continue
 
-        # Build the arguments to pass to the spaces_create routine.
-        create_args = [ "spaces", "create" ]
+        if space_args.bulk_subcommand == "create":
+            spaces_bulk_create(space_args, text)
+        elif space_args.bulk_subcommand == "delete":
+            spaces_bulk_delete(text)
 
-        # Split the row into expected columns.
-        arg_row = text.split(",")
+def spaces_bulk_create(space_args, text):
+    # Build the arguments to pass to the spaces_create routine - just like
+    # it would appear on a command line.
+    
+    create_args = [ "spaces", "create" ]
 
-        space_name = arg_row[CONST_SPACE_NAME]
-        space_label = arg_row[CONST_LABEL]
-        space_disk = arg_row[CONST_DISK]
-        space_memory = arg_row[CONST_MEMORY]
-        space_template = arg_row[CONST_TEMPLATE]
-        space_force = arg_row[CONST_FORCE]
+    # Split the row into expected columns.
+    text_row = text.split(",")
 
-        # Pass along the force option, if present.
-        # Note: command line argument overrides individual spaces in the CSV
+    space_name = text_row[constants.CONST_SPACE_NAME]
+    space_label = text_row[constants.CONST_LABEL]
+    space_disk = text_row[constants.CONST_DISK]
+    space_memory = text_row[constants.CONST_MEMORY]
+    space_template = text_row[constants.CONST_TEMPLATE]
+    space_force = text_row[constants.CONST_FORCE]
 
-        if space_args.force:
+    # Pass along the force option, if present.
+    # Note: command line argument overrides individual spaces in the CSV
+
+    if space_args.force:
+        create_args.append("--force")
+    else:
+        if isinstance(space_force, str) and len(space_force) > 0 and space_force.lower() == 'true':
             create_args.append("--force")
-        else:
-            if isinstance(space_force, str) and len(space_force) > 0:
-                if space_force.lower() == "true":
-                    create_args.append("--force")
-                else:
-                    logger.warning("spaces_bulk_create: invalid force argument, should be \"true\" or empty - defaulting to false.")
+            
+    # Pass along the template specified on the command line.
+    # Note: command line argument overrides individual templates in the CSV
+    
+    # Note: we do not validate the specified template Space - that occurs
+    # during the create operation.
 
-        # Pass along the template specified on the command line.
-        # Note: command line argument overrides individual templates in the CSV
-        # Note: we do not validate the template - that occurs during the
-        #       create operation.
+    if space_args.template is not None:
+        create_args.append('--template')
+        create_args.append(space_args.template)
+    else:
+        if space_template is not None:
+            if isinstance(space_template, str) and len(space_template) > 0:
+                create_args.append('--template')
+                create_args.append(space_template)
 
-        if space_args.template is not None:
-            create_args.append('--template')
-            create_args.append(space_args.template)
-        else:
-            if space_template is not None:
-                if isinstance(space_template, str) and len(space_template) > 0:
-                    create_args.append('--template')
-                    create_args.append(space_template)
+    # Process a label if present in the CSV
+    # Note: we do not validate the label name - that occurs during
+    #       the create operation.
 
-        # Process a label if present in the CSV
-        # Note: we do not validate the label name - that occurs during
-        #       the create operation.
+    if space_label is not None and len(space_label) > 0:
+        create_args.append("--label")
+        create_args.append(space_label)
 
-        if space_label is not None and len(space_label) > 0:
-            create_args.append("--label")
-            create_args.append(space_label)
+    # Note: if disk or memory is not specified for this space
+    #       then the values will set to defaults or to the template
+    #       values (if specified).
 
-        # Note: if disk or memory is not specified for this space
-        #       then the values will set to defaults or to the template
-        #       values (if specified).
+    if space_disk is not None and len(space_disk) > 0:
+        create_args.append("--disk")
+        create_args.append(space_disk)
 
-        if space_disk is not None and len(space_disk) > 0:
-            create_args.append("--disk")
-            create_args.append(space_disk)
+    if space_memory is not None and len(space_memory) > 0:
+        create_args.append("--memory")
+        create_args.append(space_memory)
 
-        if space_memory is not None and len(space_memory) > 0:
-            create_args.append("--memory")
-            create_args.append(space_memory)
+    # Add the NON-OPTIONAL space name parameter
+    create_args.append(space_name)
 
-        # Add in the NON-OPTIONAL space name
-        create_args.append(space_name)
-
-        # Add in the NON-OPTIONAL list of users
-        for user in arg_row[CONST_USERS:]:
+    # Add in the NON-OPTIONAL list of users
+    for user in text_row[constants.CONST_USERS:]:
+        if isinstance(user, str) and len(user) > 0:
             create_args.append(user.strip())
 
-        spaces_create(cmdparse.parse(create_args))
+    spaces_create(cmdparse.parse(create_args))
 
-def spaces_bulk_delete(args):
-    if not os.path.exists(args.csv):
-        logger.error("spaces_bulk_delete: CSV file {} not found".format(args.csv))
-        return
+def spaces_bulk_delete(text):
+    space_args = text.split(",")
+    space_name = space_args[0]
 
-    # Load the file - should be a CSV file
-
-    with open(args.csv, "r") as file:
-        spaces_text = file.readlines()
-
-    # Remove the header line.
-    spaces_text = spaces_text[args.skip:]
-
-    for space in spaces_text:
-        space_args = space.split(",")
-        space_name = space_args[0]
-
-        config.dwc.spaces_delete_cli(space_name)
+    config.dwc.spaces_delete_cli(space_name)
 
 def spaces_list(space_args):
     utility.start_timer("spaces_list")
@@ -268,7 +257,7 @@ def spaces_list(space_args):
     spaces = config.dwc.get_space_list(space_args.spaceName, space_args.wildcard)
 
     # Capture this list of spaces to a file so we can visually review if needed.
-    utility.write_json("space-list", spaces)  
+    utility.write_json("spaces-list", spaces)  
     
     # Now loop over the spaces list and do additional queries to get all the details for each space.
 
@@ -282,57 +271,44 @@ def spaces_list(space_args):
     
     for current_space in spaces:
         space_name = current_space["name"]  # This is the technical name for the space.
-        space_id = current_space["id"]
 
-        logger.debug(f"starting space list for {space_name}")
+        logger.debug(f"spaces_create: starting space list for {space_name}")
         
         # Get the space details (including members/dbusers/connections/etc) from DWC
         space = config.dwc.get_space(space_name)
 
-        # For us to be able to pull more data/business builder information, we need to ensure
-        # the DWC current user is a member of the space.  This is done via the offical API.
-        # To use the API, we need a definition of the Space as a JSON file.  Write
-        # out the original definition to be used if we need to remove our membership
-        # after the data extract is complete.
-        
-        config.dwc.write_space_json(space)
-        
         # Pull out the space details from the query results.
         space_def = space[space_name]["spaceDefinition"]
 
         # Compose the space row to be written to the output.  This is a
-        # combination of all the short space query attributes (shallow copy) 
-        # and the detailed query attributes (python update).
+        # combination of all the short space query attributes 
+        # and the detailed query attributes.
         
-        new_space = current_space.copy()   # Shallow copy of the slim version to start a new object
-        new_space.update(space_def)        # Add the detailed space attributes
+        new_space = copy.deepcopy(current_space)   # Start with a copy of the simple space defintion
+        new_space.update(space_def)                # Add the detailed space attributes
 
-        space_list.append(new_space)       # Add this completed space to the list.
+        space_list.append(new_space)       # Add this completed space to the list - we love lists
         
         # Assume the administrative user doing this operation is not a member of this space.  
         spaces_needing_member[space_name] = True 
         
-        if len(new_space["members"]) > 0:  # Do we have members?
-            for member in new_space["members"]:
-                # Are we a member of the space?
-                if member["name"] == config.dwc.get_user_info()["userName"]:
-                    spaces_needing_member[space_name] = False
+        for member in new_space["members"]:
+            # Are we a member of the space?
+            if member["name"] == config.dwc.get_user_info()["userName"]:
+                spaces_needing_member[space_name] = False
+                break
 
-                # Add some referential integrity.
-                member["spaceId"] = space_id
+        # Create a list object for this space's dbusers containing the list
+        # of schema objects available for building views.
 
-        # Enrich the dbusers with spaceId values for referential integrity.
-        if isinstance(new_space["dbusers"], list) and len(new_space["dbusers"]) > 0:
-            for dbuser in new_space["dbusers"]:
-                dbuser["spaceId"] = space_id
-
-                # For each data access user in the space, find the objects that exist in that schema
-
-                for object in config.dwc.get_dbuser_objects(space_name, dbuser):
-                    if "objects" not in dbuser["spaceId"]:
-                        dbuser["spaceId"]["objects"] = []
-                    
-                    dbuser["spaceId"]["objects"].append(object)
+        for object in config.dwc.get_dbuser_objects(space_name, new_space["dbusers"]):
+            # Add in the hastag username of the user as a distinct field.
+            object["dbuser"] = object["id"][:object["id"].find(".")]  
+            
+            if "dbuser_objects" not in new_space:
+                new_space["dbuser_objects"] = []
+                
+            new_space["dbuser_objects"].append(object)
  
         # Ask for any connections defined for this space.
         # NOTE: this query uses ID and not SPACE_NAME 
@@ -372,8 +348,6 @@ def spaces_list(space_args):
                 if "data_builder" not in new_space:  # Lazy add to the object
                     new_space["data_builder"] = []
             
-                db_object["spaceId"] = space_id
-
                 new_space["data_builder"].append(db_object)
 
         # Pump out the remote tables list
@@ -382,25 +356,19 @@ def spaces_list(space_args):
             if "remote_tables" not in new_space:  # Lazy add to the object
                 new_space["remote_tables"] = []
             
-            remote_table["spaceId"] = space_id
-
             new_space["remote_tables"].append(remote_table)
 
         # Pump out the business builder objects
         
-        # bb_query = p.business_builder_query.replace("{space_name}", space_name)
+        business_builder_objects = config.dwc.get_business_builder_objects(space_name)
 
-        # business_builder_string = dwc.post(urls["businessbuilder"], bb_query).text
-        # logr.info(elapsedTime.format("Business Builder query for space {}".format(space_name), dwc.getelapsed()))
-
-        # if len(business_builder_string) > 0:
-        #     business_builder_objects = json.loads(business_builder_string)
+        for business_builder_object in business_builder_objects:
+            business_builder_object["space_name"] = space_name
             
-        #     if business_builder_objects["@odata.count"] > 0:
-        #         for business_builder_object in business_builder_objects["Content"]:
-        #             business_builder_object["space_name"] = space_name
-                    
-        #             business_builder_list.append(business_builder_object)
+            if "business_builder" not in new_space:
+                new_space["business_builder"] = []
+                
+            new_space["business_builder"].append(business_builder_object)
 
     if len(space_list) == 0:
         logger.warn("spaces_list: No spaces found.")

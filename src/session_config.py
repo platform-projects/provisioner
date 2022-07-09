@@ -9,7 +9,7 @@ import zlib
 # level of info.
 
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s : %(message)s")
-log_level = logging.INFO
+log_level = logging.NOTSET
 
 logger = logging.getLogger("config")
 
@@ -21,10 +21,11 @@ config_params = { "sections" : [
                   ]
                 }
 
-config = None
+# At load, there is no configuration.
+session_config = None
 
 def ensure_config(args):
-    global log_level, config
+    global log_level, session_config
     
     # Make sure the configuration file is present and has been initialized. The configuration
     # file is built based on the sections and parameters list above and any command line
@@ -45,19 +46,19 @@ def ensure_config(args):
         logger.critical("Configuration file not found - please use the config command.")
         sys.exit(1)
 
-    config = configparser.ConfigParser()
+    session_config = configparser.ConfigParser()
     write_config = False
     
     if config_exists:
-      config.read(config_file)
+      session_config.read(config_file)
     
     for section in config_params["sections"]:
       # Make sure the section is present.
-      if section["name"] not in config:
-        config[section["name"]] = {}
+      if section["name"] not in session_config:
+        session_config[section["name"]] = {}
         write_config = True
       
-      # Check for mandatory parameter - traling '+' means optional
+      # Check for mandatory parameter - trailing '+' means optional
       
       for parameter in section["parameters"]:
         if parameter[-1] == '+':
@@ -73,23 +74,19 @@ def ensure_config(args):
         if param_name in vars(args): # Was the parameter on the command line?
           param_value = str(vars(args)[param_name])
           
+          # Obscure any parameter with "password" in the name.
           if param_name.find("password") == -1:
-            config[section["name"]][param_name] = param_value
+            session_config[section["name"]][param_name] = param_value
           else:
-            config[section["name"]][param_name] = fn_blur(param_value)
+            session_config[section["name"]][param_name] = fn_blur(param_value)
             
           write_config = True
-        
-        # Last step: make sure required parameters have been
-        # configured.
-          
-        if param_name not in config[section["name"]]:
-          if required:
-            logger.error(f"required configuration parameter {param_name} has no value.")
-            
+    
+    # If anything was changed, (re)write the config file.
+    
     if write_config:
       with open(config_file, 'w') as config_handle:
-        config.write(config_handle)
+        session_config.write(config_handle)
       
     # Figure out the logging level - default is info.
 
@@ -106,12 +103,59 @@ def ensure_config(args):
 
     log_level = logger.getEffectiveLevel()
 
+def get_config_section(section):
+  for config in config_params["sections"]:
+    if config["name"] == section:
+      return config
+    
+  return None
+
 def get_config_param(section, parameter):
-  if config is None:
+  # Make sure the section and parameter are valid configuration
+  # values - must be official.
+
+  config_section = get_config_section(section)
+  
+  if config_section is None:
+    logger.error(f"get_config_param: request for invalid section {section}.")
+    return
+
+  config_parameters = config_section["parameters"]
+
+  param_optional = parameter + "+"
+  
+  if parameter not in config_parameters and param_optional not in config_parameters:
+    logger.error(f"get_config_param: request for invalid parameter {parameter}.")
+    return
+
+  if param_optional in config_parameters:
+    required = False
+  else:
+    required = True
+    
+  # We know the request is valid, make sure the configuration
+  # for the current session is loaded.
+  
+  if session_config is None:
     logger.error("get_config_param: configuration has not been initialized.")
     return
   
-  param_value = config[section][parameter]
+  # The configuration could be corrupt - make sure the section
+  # exists in the current session.
+  
+  if section not in session_config.sections():
+    logger.error(f"get_config_param: configuration file is invalid - section {section} not found.")
+    return None
+  
+  section_params = session_config[section]
+  
+  # Test to see if we have an official parameter name.
+  
+  if parameter not in section_params and required:
+    logger.error(f"get_config_param: required configuration parameter {parameter} has no value.")
+    return None      
+
+  param_value = session_config[section][parameter]
   
   if parameter.find("password") == -1:
     return param_value

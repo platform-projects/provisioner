@@ -1,21 +1,22 @@
 import logging
 
-import dwc_config as config
-import dwc_utility as utility
-import dwc_writer as writer
+import session_config as config
+import utility as utility
+import writer as writer
 
 logger = logging.getLogger("spaces")
 
 def process(user_args):
     logger.setLevel(config.log_level)
 
+    # For now, we only implement the list command.
     if user_args.subcommand == "list":
         users_list(user_args)
 
 def users_list(user_args):
     utility.start_timer("users_list")
 
-    user_list = []
+    user_list = []  # We love lists.
     
     for user in config.dwc.get_users(user_args.users):
         # Do some fixup to streamline the user information.
@@ -42,7 +43,7 @@ def users_list(user_args):
 
         user_list.append(user)
 
-    # The ETL is complete and we have the users and their roles; push the lists to the database.
+    # The ETL is complete and we have the users and their roles, output the list.
 
     writer.write_list(user_list, args=user_args)
     

@@ -15,8 +15,7 @@ def config_parser():
     dwc_parser.add_argument("-l", "--logging",  help="set the logging level, default=none", choices=['info', 'debug'])
 
     dwc_parser.add_argument("-c", "--config",   help="provisioning tool config file (default=config.json")
-
-
+    
     global_subparsers = dwc_parser.add_subparsers(help='dwc provisioning tool commands', dest="command")
 
     # The following are "optional" parameters that have meaning
