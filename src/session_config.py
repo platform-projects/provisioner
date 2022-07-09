@@ -15,7 +15,7 @@ logger = logging.getLogger("config")
 
 config_params = { "sections" : [
                     { "name"       : "dwc", 
-                      "parameters" : [ "dwc_cli", "dwc_url", "dwc_user", "dwc_password" ] },
+                      "parameters" : [ "dwc_url", "dwc_user", "dwc_password" ] },
                     { "name"       : "hana",
                       "parameters" : [ "hana_host", "hana_port", "hana_user", "hana_password", "hana_encrypt", "hana_sslverify+" ] }
                   ]

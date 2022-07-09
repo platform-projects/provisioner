@@ -12,7 +12,7 @@ def config_parser():
         prog='dwc.py',
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    dwc_parser.add_argument("-l", "--logging",  help="set the logging level, default=none", choices=['info', 'debug'])
+    dwc_parser.add_argument("-l", "--logging",  help="set the global logging level, default=none", choices=['info', 'debug'])
 
     dwc_parser.add_argument("-c", "--config",   help="provisioning tool config file (default=config.json")
     
@@ -22,7 +22,7 @@ def config_parser():
     # for different commands.
 
     config_parser = global_subparsers.add_parser('config', help="Set URLs and credentials for the tool")
-    config_parser.add_argument("--dwc-cli",      help="installation location of the DWC Command Line")
+    # config_parser.add_argument("--dwc-cli",      help="installation location of the DWC Command Line")
     config_parser.add_argument("--dwc-url",      help="DWC tenant URL")
     config_parser.add_argument("--dwc-user",     help="DWC user name or email")
     config_parser.add_argument("--dwc-password", help="DWC password")

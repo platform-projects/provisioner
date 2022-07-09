@@ -43,9 +43,10 @@ ubuntu@ip-17-1-3-11:~$
 ```git --version```
 
 ```
-ubuntu@ip-17-1-3-11:~$ git --version
-git version 2.34.1
-ubuntu@ip-17-1-3-11:~$        
+C:\dwc>git --version
+git version 2.37.0.windows.1
+
+C:\dwc>
 ```
 ### Configure HANA allow list (optional)
 Set allow list for Cloud HANA connection
@@ -57,6 +58,10 @@ Mac OS X.
 
 ### Ubuntu Linux
 For this example, this is a Ubuntu image running in a micro-
+```
+ubuntu@ip-17-1-3-11:~$ mkdir dwc-provisioner
+ubuntu@ip-17-1-3-11:~$ git clone https://github.com/platform-projects/provisioner
+```
 ### Windows
 Then open a console and change to the download path:
 ```bat
