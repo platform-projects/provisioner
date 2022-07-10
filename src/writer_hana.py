@@ -1,6 +1,6 @@
 import logging
 
-#from hdbcli import dbapi
+from hdbcli import dbapi
 
 import session_config as config
 
@@ -25,12 +25,22 @@ def hana_connect():
     logger.debug("Entering hana_connect...")
 
     if conn is None:
+        if config.get_config_param("hana", "hana_encrypt") == "True":
+            encrypt = True
+        else:
+            encrypt = False
+
+        if config.get_config_param("hana", "hana_sslverify") == "True":
+            ssl = True
+        else:
+            ssl = False
+
         conn = dbapi.connect(address=config.get_config_param("hana", "hana_host"),
                              port=config.get_config_param("hana", "hana_port"),
                              user=config.get_config_param("hana", "hana_user"),
                              password=config.get_config_param("hana", "hana_password"),
-                             encrypt=config.get_config_param("hana", "hana_encrypt"),
-                             sslValidateCertificate=config.get_config_param("hana", "hana_sslValidateCertificate")
+                             encrypt=encrypt,
+                             sslValidateCertificate=ssl
                             )
         
         cursor = conn.cursor()
@@ -49,10 +59,10 @@ def hana_execute(sql_statement, bind_values=[]):
         logger.error("SQL Error: {}".format(e.errortext))
         logger.error(sql_statement)
 
-def create_ddl(list_obj, table_name):
+def create_ddl(list_obj, args):
     """Create a SQL definition for a list of objects
     """
-    logger.debug(f'Entering create_table_sql: {table_name}')
+    logger.debug(f'Entering create_table_sql: {args.prefix}')
 
     ddl = {}
 
@@ -60,7 +70,7 @@ def create_ddl(list_obj, table_name):
     create_sql_tmpl = 'create column table {} ('
     insert_sql_tmpl = 'insert into {} values ('
 
-    recurse_columns(ddl, list_obj, table_name.upper())
+    recurse_columns(ddl, list_obj, args.prefix.upper())
 
     # Build all the SQL statements for all the columns
 
@@ -215,10 +225,10 @@ def execute_dml(ddl, statement_name, list_data, param_name):
 
         hana_execute(sql_stmt, insert_values)
 
-def write_list(list_data, table_name):
-    ddl = create_ddl(list_data, table_name)
+def write_list(list_data, args):
+    ddl = create_ddl(list_data, args)
 
     execute_ddl(ddl, "drop")
     execute_ddl(ddl, "create")
 
-    execute_dml(ddl, "insert", list_data, table_name)
+    execute_dml(ddl, "insert", list_data, args.prefix)

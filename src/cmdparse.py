@@ -28,12 +28,12 @@ def config_parser():
     config_parser.add_argument("--dwc-password", help="DWC password")
     config_parser.add_argument("--dwc-tenant",   help="DWC tenant URL")
 
-    config_parser.add_argument("--hana-host",     help="HANA host name")
-    config_parser.add_argument("--hana-port",     help="HANA port")
-    config_parser.add_argument("--hana-user",     help="HANA username")
-    config_parser.add_argument("--hana-password", help="HANA password")
-    config_parser.add_argument("--hana-encrypt",  help="Encrypt HANA communication (default=False)", action="store_true")
-    config_parser.add_argument("--hana-validate", help="Validate the HANA certificate (default=False)", action="store_true")
+    config_parser.add_argument("--hana-host",      help="HANA host name")
+    config_parser.add_argument("--hana-port",      help="HANA port")
+    config_parser.add_argument("--hana-user",      help="HANA username")
+    config_parser.add_argument("--hana-password",  help="HANA password")
+    config_parser.add_argument("--hana-encrypt",   help="Encrypt HANA communication (default=False)", default=False, action="store_true")
+    config_parser.add_argument("--hana-sslverify", help="Validate the HANA certificate (default=False)", default=False, action="store_true")
         
     # Users commands: list (only right now)
     user_parser = global_subparsers.add_parser('users', help='Create, delete and list DWC users')
