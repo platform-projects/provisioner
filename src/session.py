@@ -1,21 +1,12 @@
 from bs4 import BeautifulSoup
 from os.path import exists
 
-import requests
-import urllib
-import urllib3
-import subprocess
-import logging
-import time
-import json
-import re
-import os
-import copy
+import requests, urllib, urllib3, subprocess
+import logging, time, json, re, copy
 
-import session_config as config
-import utility as utility
+import utility
 
-logger = config.logging.getLogger("session")
+logger = logging.getLogger("session")
 
 class DWCSession:
     # Since we are impersonating a browser we need to identify what kind.

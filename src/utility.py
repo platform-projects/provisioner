@@ -1,10 +1,5 @@
-import time
-import json
-import os
-import logging
+import time, json, os, logging
 from pathlib import Path
-
-import session_config as config
 
 logger = logging.getLogger("utility")
 

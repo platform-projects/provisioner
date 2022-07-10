@@ -1,13 +1,11 @@
 import logging
 
-import session_config as config
-import utility as utility
-import writer as writer
+import session_config, utility, writer
 
 logger = logging.getLogger("spaces")
 
 def process(user_args):
-    logger.setLevel(config.log_level)
+    logger.setLevel(session_config.log_level)
 
     # For now, we only implement the list command.
     if user_args.subcommand == "list":
@@ -18,7 +16,7 @@ def users_list(user_args):
 
     user_list = []  # We love lists.
     
-    for user in config.dwc.get_users(user_args.users):
+    for user in session_config.dwc.get_users(user_args.users):
         # Do some fixup to streamline the user information.
         user["email"] = user["parameters"]["EMAIL"]
         user["display_name"] = user["parameters"]["DISPLAY_NAME"]
@@ -28,8 +26,9 @@ def users_list(user_args):
         else:
             user["number_of_days_visited"] = None
 
+        # ETL note:
         # It is possible for a user to have no roles.  If roles are present, pivot
-        # the string into a list of roles.
+        # the string into a list of roles to support reporting.
         
         if len(user["roles"].strip()) > 0:
             # This is a multi-value string field separated by semi-colons

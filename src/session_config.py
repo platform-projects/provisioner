@@ -1,14 +1,11 @@
-import logging
-import os
-import sys
-import configparser
-import base64
-import zlib
+import logging, os, sys, configparser, base64, zlib
 
 # Configure the global logging with a default logging
 # level of info.
 
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s : %(message)s")
+
+# Default logging level for all operations is NOTSET
 log_level = logging.NOTSET
 
 logger = logging.getLogger("config")
@@ -17,7 +14,7 @@ config_params = { "sections" : [
                     { "name"       : "dwc", 
                       "parameters" : [ "dwc_url", "dwc_user", "dwc_password" ] },
                     { "name"       : "hana",
-                      "parameters" : [ "hana_host", "hana_port", "hana_user", "hana_password", "hana_encrypt", "hana_sslverify+" ] }
+                      "parameters" : [ "hana_host", "hana_port", "hana_user", "hana_password", "hana_encrypt", "hana_sslverify" ] }
                   ]
                 }
 

@@ -1,12 +1,15 @@
 import logging
 
-import session_config as config
+import session_config
 
-logger = logging.getLogger("csv")
+logger = logging.getLogger("writer_csv")
 
 def recurse_columns(columns, list_data, param_name):
     csv_name = param_name.lower()
 
+    # Lazy instantiation of the column list - we may see
+    # not see the same csv in every pass through lists.
+    
     if csv_name not in columns:
         columns[csv_name] = { "columns": [], "file_handle" : None }
 
@@ -56,13 +59,15 @@ def write_csv(columns, list_data, param_name):
     for row in list_data:
         row_column_names = row.keys()
     
-def write_list(list_data, file_name):
-    logger.setLevel(config.log_level)
+def write_list(list_data, args):
+    logger.setLevel(session_config.log_level)
 
-    columns = recurse_columns(list_data, file_name)
+    columns = recurse_columns(list_data, args.prefix)
 
-    write_csv(columns, list_data, file_name)
+    write_csv(columns, list_data, args.prefix)
 
+    # Every sub-list may have generated an open file, close them all.
+    
     for csv_name in columns:
         if columns[csv_name]["file_handle"] is not None and columns[csv_name]["file_handle"].closed == False:
             columns[csv_name]["file_handle"].close()

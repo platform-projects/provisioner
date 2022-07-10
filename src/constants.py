@@ -73,13 +73,17 @@ default_space_definition = {
     }
 }
 
+# s = string
+# e = epoch date
+# g = gigabyte (=#/1GB)
+
 templates = {
   "users" : {
     "fields" : {
-      "user_name" : { "path" : "userName", "format" : "25s", "heading" : "User" },
-      "user_email" : { "path" : "parameters.EMAIL", "format" : "35s", "heading" : "Email" },
+      "user_name"      : { "path" : "userName",                   "format" : "25s", "heading" : "User" },
+      "user_email"     : { "path" : "parameters.EMAIL",           "format" : "35s", "heading" : "Email" },
       "user_lastLogin" : { "path" : "parameters.LAST_LOGIN_DATE", "format" : "10e", "heading" : "Last Login" },
-      "role_name" : { "path" : "roleName", "format" : "30s", "heading" : "Role" }
+      "role_name"      : { "path" : "roleName",                   "format" : "30s", "heading" : "Role" }
     },
     "rows" : [
       { "type" : "row", "layout" : "{user_name} {user_email} {user_lastLogin}\n" },
@@ -88,10 +92,10 @@ templates = {
   },
   "spaces" : {
     "fields" : {
-      "space_name"            : { "path" : "name", "format" : "30s" },
+      "space_name"            : { "path" : "name",                      "format" : "30s" },
       "space_memory_assigned" : { "path" : "resources.memory.assigned", "format" : "6g" },
-      "space_memory_used"     : { "path" : "resources.memory.used", "format" : "6g" },
-      "member_name"           : { "path" : "name", "format" : "30s"}
+      "space_memory_used"     : { "path" : "resources.memory.used",     "format" : "6g" },
+      "member_name"           : { "path" : "name",                      "format" : "30s"}
     },
     "rows" : [
       { "type" : "row", "layout" : "{space_name} {space_memory_assigned} {space_memory_used}\n" },

@@ -1,6 +1,6 @@
 import logging
 
-from hdbcli import dbapi
+#from hdbcli import dbapi
 
 import session_config as config
 
@@ -226,6 +226,8 @@ def execute_dml(ddl, statement_name, list_data, param_name):
         hana_execute(sql_stmt, insert_values)
 
 def write_list(list_data, args):
+    logger.setLevel(config.log_level)
+
     ddl = create_ddl(list_data, args)
 
     execute_ddl(ddl, "drop")

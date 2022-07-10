@@ -8,17 +8,10 @@ major elements of the GUI are available for download:
 There are various options that can be set to control the operation of this script.
 """
 
-import os
-import sys
-import logging
+import os, sys, logging
 
-import session_config as config
-import cmdparse as cmdparse
-import connections as connections
-import spaces as spaces
-import shares as shares
-import users as users
-import utility as utility
+import session_config
+import cmdparse, connections, spaces, shares, users, utility
 
 from session import DWCSession
 
@@ -26,7 +19,7 @@ logger = logging.getLogger("dwc_tool")
 
 if __name__ == '__main__':
     if sys.version_info<(3,8,0):
-        sys.stderr.write("You need python 3.8 or later to run this script\n")
+        sys.stderr.write("You need python 3.8 or later to run this tool.\n")
         sys.exit(1)
 
     # Track how long this process runs across all commands.
@@ -37,23 +30,27 @@ if __name__ == '__main__':
     args = cmdparse.parse(sys.argv[1:])  
 
     # Make sure our configuration is present and valid.    
-    config.ensure_config(args)
+    session_config.ensure_config(args)
 
     # For the configuration operation, there's nothing else to do.
     if args.command == "config":
         sys.exit(0)
-        
+
+    # Update our logging level based on the configuration we just loaded.
+    logger.setLevel(session_config.log_level)        
+    
     # Build the full list of commands, including multiple commands
     # coming from a script.
     
     commands = []  # We love lists to loop over.
-    commands.append(args)
 
     # Check if a script was provided on the command line.  If so, the
     # commands in the script file will be added to the commands to
     # run - in addition to the global parameters.
 
-    if args.command == 'script':
+    if args.command != 'script':
+        commands.append(args)
+    else:
         if not os.path.exists(args.filename):
             logger.fatal("Script {} not found.".format(args.filename))
             sys.exit(1)
@@ -74,12 +71,12 @@ if __name__ == '__main__':
                 continue
             
             # If we see "exit" we are done with this script.
-            if script_args == "exit":
+            if script_args.startswith("exit"):
                 break
             
             # Invalid script commands - skip.    
             if script_args.startswith("config"):
-                logger.warning("config commands are not permitted in script files")
+                logger.warning("config commands are not permitted in script files - skipped")
                 continue
             
             logger.debug("..script cmd: {}".format(script_args))
@@ -91,16 +88,17 @@ if __name__ == '__main__':
 
     # We are good to go, login to the DWC tenant
     
-    config.dwc = DWCSession(
-        url=config.get_config_param("dwc", "dwc_url"), 
-        user=config.get_config_param("dwc", "dwc_user"), 
-        password=config.get_config_param("dwc", "dwc_password"))
+    session_config.dwc = DWCSession(
+        url=session_config.get_config_param("dwc", "dwc_url"), 
+        user=session_config.get_config_param("dwc", "dwc_user"), 
+        password=session_config.get_config_param("dwc", "dwc_password"))
     
-    config.dwc.setLevel(logger.getEffectiveLevel())
+    # Push the logging level into the DWC session.
+    session_config.dwc.setLevel(logger.getEffectiveLevel())
 
     # Start the interaction with DWC by logging in.
 
-    if config.dwc.login() == False:
+    if session_config.dwc.login() == False:
         sys.exit(1)
         
     # Loop over the commands processing each with their own arguments.
