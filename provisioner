@@ -1,6 +1,6 @@
-@echo off
+#!/bin/bash
 
-set curPath=%~dp0
-set srcPath=%curPath%\src
+curPath=$(pwd)
+srcPath=${curPath}/src
 
-python3 %srcPath%\provisioner.py %*
+python3 ${srcPath}/provisioner.py %*
