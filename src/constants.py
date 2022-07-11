@@ -92,14 +92,17 @@ templates = {
   },
   "spaces" : {
     "fields" : {
-      "space_name"            : { "path" : "name",                      "format" : "30s" },
-      "space_memory_assigned" : { "path" : "resources.memory.assigned", "format" : "6g" },
-      "space_memory_used"     : { "path" : "resources.memory.used",     "format" : "6g" },
-      "member_name"           : { "path" : "name",                      "format" : "30s"}
+      "space_name"            : { "path" : "$.name",                      "format" : "30s" },
+      "space_memory_assigned" : { "path" : "$.resources.memory.assigned", "format" : "6g"  },
+      "space_memory_used"     : { "path" : "$.resources.memory.used",     "format" : "6g"  },
+      "enabledDataLake"       : { "path" : "$.enableDataLake",            "format" : "10s" },
+      "space_members"         : { "path" : "$.members[*]",                "format" : "30s", "aggregate" : "$.name" },
+      "space_dbusers"         : { "path" : "$.dbusers.*",                 "format" : "30s", "aggregate" : "$.key" },
+      "member_name"           : { "path" : "$.name",                      "format" : "30s" }
     },
     "rows" : [
-      { "type" : "row", "layout" : "{space_name} {space_memory_assigned} {space_memory_used}\n" },
-      { "type" : "list", "path" : "members", "layout" : "  Member: {member_name}" }
+      { "type" : "row", "layout" : "{space_name} {space_memory_assigned} {space_memory_used} {enabledDataLake} {space_dbusers}\n" },
+      { "type" : "row", "path" : "$.members", "layout" : "  Member(s): {space_members}" }
     ]
     }
   }

@@ -219,12 +219,12 @@ class DWCSession:
 
             self.elapsed = time.perf_counter() - t0
 
+            logger.debug(f"succefully logged in as {self.j_username}")
+
             # Initialize the user the same way DWC does after getting authenticated.
             # The key here is to get the details about the user AND the DWC tenant.
     
             self.set_user_info()
-
-            logger.debug(f"succefully logged in as {self.j_username}")
 
             return True
         
@@ -242,6 +242,8 @@ class DWCSession:
             self.dwc_user_info = self.get_json('logon')
 
     def get_user_info(self):
+        self.set_user_info()
+        
         return self.dwc_user_info["user"]
 
     def get_spaces(self, force=False):
@@ -644,11 +646,21 @@ class DWCSession:
             ]
         }
 
-        results = self.post(self.get_url("businessbuilder"), str(business_builder_query).replace("'", '"'))
+        response = self.post(self.get_url("businessbuilder"), json.dumps(business_builder_query))
         
-        if results is None:
-            return []
-        
+        try:
+            results = json.loads(response.text)
+
+            if "Content" in results:
+                results = results["Content"]
+            else:
+                return []        
+        except:
+            logger.error("error parsing JSON")
+            results = []
+            
+            pass
+                
         return results
 
     def get_remote_tables(self, space_name):

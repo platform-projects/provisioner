@@ -369,6 +369,7 @@ def spaces_list(space_args):
 
         return
 
+    utility.write_json("space_test", space_list)
     writer.write_list(space_list, args=space_args)
 
 def process_members(space_args):

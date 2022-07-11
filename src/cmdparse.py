@@ -26,7 +26,6 @@ def config_parser():
     config_parser.add_argument("--dwc-url",      help="DWC tenant URL")
     config_parser.add_argument("--dwc-user",     help="DWC user name or email")
     config_parser.add_argument("--dwc-password", help="DWC password")
-    config_parser.add_argument("--dwc-tenant",   help="DWC tenant URL")
 
     config_parser.add_argument("--hana-host",      help="HANA host name")
     config_parser.add_argument("--hana-port",      help="HANA port")

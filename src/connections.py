@@ -47,7 +47,6 @@ def connections_list(connection_args):
     utility.start_timer("connections_list")
 
     # Expand the list with any wild cards before processing.
-
     space_list = session_config.dwc.get_space_list(connection_args.sourceSpace, connection_args.wildcard)
 
     if len(space_list) == 0:

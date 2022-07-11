@@ -1,82 +1,109 @@
 # SAP Data Warehouse Cloud Provisioner
 
-## Description
-This example shows how to programatically create, update and delete SAP Data Warehouse Cloud artifacts. It is written in Python and demonstrates how to:
-- create and remove spaces with a simple command line
-- create and remove lists of spaces using a CSV file
-- create and remove connections in one or many spaces
-- create and remove shares from one space to another
+## Table of Contents
+* [1.0 - Description](#description)
+* [2.0 - Requirements](#requirements)
+  * [2.1 - Required Setup](#required-setup)
+  * [2.2 - Optional Setup](#optional-setup)
+* [3.0 - Check your environment](#check)
+  * [3.1 - Python](#check-python)
+  * [3.2 - Git](#check-git)
+  * [3.3 - SAP HANA configuration](#hana)
+* [4.0 - Download and Configuration](#download)
+* [5.0 - Command Syntax](#syntax)
+## <a href="#description"></a>1.0 Description
+This sample tool shows how to programatically create, update and delete SAP Data Warehouse Cloud artifacts. It is written in Python and demonstrates how to:
+- create and remove spaces with a simplified command line
+- bulk create and remove spaces using a CSV file
+- create and remove connections in one, or many spaces
+- create and remove shared objects from one space to another
 - generate a set of HANA tables for analytics
 
-
 ## Requirements
+### Required
 - SAP Data Warehouse Cloud administrator access, i.e., user with <span style="color: green">**DW&nbsp;Administrator**</span> privilege
 - [Python version 3.8](https://www.python.org/downloads/ "download") or higher
 - [Git (latest version)](https://git.com "download")
+### Optional
+- Access to an SAP HANA (on-prem or cloud) schema
 - [Node (latest version)](https://nodejs.com/en/download)
 - SAP @sap/dwc_cli
-- Optional: SAP HANA command line interface (hdbcli)<br>
-_Note_: there are compatiblility issues with hdbcli on Apple M1 hardware
-- Optional: access to an SAP HANA (on-prem or cloud) schema
-
-### Additional requirements for development
-- [Visual Studio Code](https://code.visualstudio.com/download "download")
-- Python linting as described [here](https://code.visualstudio.com/docs/python/linting)
 
 ## Check your environment
 ### Python
-Ensure that you have a valid Python 3.8 (or higher) version installed and available at the command line.  Use one of the following command to verify.
+The tool requires Python 3.8 (or higher) to be available.  Use one of the following command to verify the Python installation.
 
 <span style="color: gray">_Note_: the latest versions of Python include both <span style="color: white">_python_</span> and <span style="color: white">_python3_</span> commands.</span>
 
 
-```python -version```
-<br>or<br>
-```python3 -version```
-
 ```
-ubuntu@ip-17-1-3-11:~$ python3 --version
+ubuntu@ip-17-1-3-11:~$ python --version
 Python 3.10.4
 ubuntu@ip-17-1-3-11:~$
 ```
-### Git (local)
-```git --version```
+### Git
+To retrieve the tool from GitHub, the command line version of Git is an easy way to download the project to a local directory. The project may also be downloaded from GitHub using a browser.
 
 ```
-C:\dwc>git --version
+C:\>git --version
 git version 2.37.0.windows.1
 
-C:\dwc>
+C:\>
 ```
 ### Configure HANA allow list (optional)
-Set allow list for Cloud HANA connection
+To create and store information about SAP Data Warehouse cloud structures in an SAP HANA Cloud instance, please ensure the IP address where this tool runs is in the allow list for SAP HANA Cloud connections.  In the example below, an SAP Data Warehouse Cloud Data Access User (a.k.a., hash-tag (#) user) is the target so in SAP Data Warehouse Cloud set the IP Allow list under the System / Configuration tab.
+
 ![SAP Data Warehouse Cloud - IP Allowlist](images/allowlist.png)
 ## Download and Installation
-Clone or download this repository to a directory.a for example to /users/c:\devpath\dwc-provisioning.  These commands are similar
-for all major operating systems, i.e., Linux, Windows, and
-Mac OS X.
+Clone or download this repository to a directory. In all the examples in this README, a directory named "tools" will be used.  The commands to download the project are similar for all major operating systems, i.e., Linux, Windows, and Mac OS X.
 
 ### Ubuntu Linux
-For this example, this is a Ubuntu image running in a micro-
-```
-ubuntu@ip-17-1-3-11:~$ mkdir dwc-provisioner
+From the home directory of the user Ubuntu:
+```bash
+ubuntu@ip-17-1-3-11:~$ mkdir tools
+ubuntu@ip-17-1-3-11:~$ cd tools>
 ubuntu@ip-17-1-3-11:~$ git clone https://github.com/platform-projects/provisioner
 ```
-### Windows
-Then open a console and change to the download path:
-```bat
-c:\> cd c:\devpath\dwc-provisioning
-```
-Generate git key
-$ ssh-keygen -t rsa -b 4096
 
-curl 
-Install the Python virtual environment tool.
+### Windows
+Open a command window (cmd):
 ```
-sudo apt install python3.10-venv
+c:\> mkdir c:\tools
+c:\> cd c:\tools
+c:\> git clone https://github.com/platform-projects/provisioner
 ```
-ubuntu@ip-172-31-83-11:~/dwc-provisioning/.venv/bin$ cat activate
-# This file must be used with "source bin/activate" *from bash*
+### MacOS
+From a terminal session:
+```I852681@YYQP76KF4P ~ % mkdir tools
+I852681@YYQP76KF4P ~ % cd tools
+I852681@YYQP76KF4P tools % git clone https://github.com/platform-projects/provisioner
+Cloning into 'provisioner'...
+remote: Enumerating objects: 103, done.
+remote: Counting objects: 100% (103/103), done.
+remote: Compressing objects: 100% (67/67), done.
+remote: Total 103 (delta 54), reused 80 (delta 31), pack-reused 0
+Receiving objects: 100% (103/103), 191.43 KiB | 1.45 MiB/s, done.
+Resolving deltas: 100% (54/54), done.
+I852681@YYQP76KF4P tools % 
+```
+### Optional Python setup
+Python allows you to create "virtual environments" to help manage dependencies between various packages and versions of packages.  <span style="font-weight: bold; color: green">It is a best practice</span> to create virtual environments for each project.  Without a virtual enviroment, all packages are installed in the "global" space and all projects will share the same package versions.
+>https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
+
+#### Install the Python virtual environment tool.
+##### Ubuntu
+```
+sudo apt install python3-venv
+```
+##### Windows/MacOS
+```
+python -m pip install --user virtualenv
+```
+#### Configure a virtual environment
+ubuntu@ip-172-31-83-11:~/tools$ cd provisioner
+ubuntu@ip-172-31-83-11:~/tools$ cat activate
+
+This file must be used with "source bin/activate" *from bash*
 # you cannot run it directly
 
 ubuntu@ip-172-31-83-11:~/dwc-provisioning$ source .venv/bin/activate
@@ -98,23 +125,19 @@ If the environment is activated correctly, a previx (.venv) is shown in the comm
 ```
 
 
-Install the required Python packages:
+### Install the required Python packages:
 ```bat
-(.venv) c:\devpath\dwc-provisioning> python -m pip install -r requirements/core.txt
-```
-Install additional Python packages if this installation is used for development:
-```bat
-(.venv) c:\devpath\dwc-provisioning> python -m pip install -r requirements/development.txt
+(.venv) c:\tools\provisioning> python -m pip install -r requirements/core.txt
 ```
 
-
-## Configuration
+## Provisioner Configuration
+Before you can run commands against SAP Data Warehouse Cloud tenants, you must set the identify the target tenant and set the username and password values.
 ```
-python dwc_tool.py config
-  --dwc-url https://{tenant}.{ds}.hcs.cloud.sap
+(.venv) c:\tools> python provisioner\src\provisioner.py config
+  --dwc-url https://{your-tenant}.{ds}.hcs.cloud.sap
   --dwc-user user.name@domain.com
   --dwc-password NotYourPassword!
-  --dwc-cli 
+
 ```
 To use the provisioner, credentials for SAP Data Warehouse Cloud and optionally for a HANA schema.
 
@@ -124,18 +147,62 @@ An admin-user is needed with the following privileges:
 - system privilege USER ADMIN
 - object privilege ESH_CONFIG execute (grantable to others)
 
-Configuration is done with the config.py script using the following parameters
-- --action install
-- --db-host: The HANA host name
-- --db-port: The HANA port number
-- --db-setup-user: The HANA user name used for setup
-- --db-setup-password: The HANA user password for the seup-user. Note: This user-name and passwords are not stored
-- --db-schema-prefix: The prefix which is used for the schemas of this installation. To avoid conflicts, there must not be any other schemas on the database starting with this schema prefix.
+## Command Syntax<a href=""></a>
+|Command|Description|
+|-------|-----------|
+|config|Set the environment configuration|
+|users|User actions against the tenant, including list, create, and delete|
+|spaces|Create, delete and list spaces.  This includes bulk loading and member assignment|
+|shares|Create, delete and list spaces objects shared to other space(s)|
+|connections|Create, delete and list connections in one, or more spaces|
+### Command: config
+This command sets connection details for both an SAP Data Warehouse Cloud tenant and optionally an SAP HANA Cloud (or on-premise) database.  After running this command, a new configuration file names **config.ini** is created in the current working directory.
+>Note: the configuration command does not validate the tenant or SAP HANA configuration values.
 
-```bat
-c:\devpath\hana-search> python src/config.py --action install --db-host <<your_hana_host>> --db-port <<your_hana_port>> --db-setup-user <<your HANA admin user>> --db-setup-password <<your HANA admin password>> --db-schema-prefix <<your HANA >>
+|Parameter|Values|
+|---------|------|
+|--config|Configuration file name (optional)|
+|--dwc-url|Target SAP Data Warehouse Cloud tenant|
+|--dwc-user|User name with administrative privileges on the tenant|
+|--dwc-password|Password for the user specified in the --dwc-user parameter|
+|--hana-host|HANA host name|
+|--hana-port|HANA port|
+|--hana-user|HANA username|
+|--hana-password|HANA password|
+|--hana-encrypt|Include the option to encrypt SAP HANA communications (default=False)|
+|--hana-sslverify|Validate the HANA certificate (default=False)|
 
-```
+Example:
+1. Set the configuration for the SAP Data Warehouse Cloud tenant:
+
+```(.venv) c:\tools> python provisioner\src\provisioner.py config --dwc-url https://tenant.region.hanacloud.com --dwc-user not.a.real.user@dummy.sap --dwc-password NotARealPassword!```
+
+After running this command, the config.ini file has the following content:
+2. Set both the SAP Data Warehouse Cloud and Data Access user credentials.
+
+```(.venv) c:\tools> python provisioner\src\provisioner.py config --dwc-url https://tenant.region.hanacloud.com --dwc-user not.a.real.user@dummy.sap --dwc-password NotARealPassword!```
+
+### Command: spaces
+The spaces command can create, delete and list spaces in the tenant
+### Command: spaces list
+The "spaces list" command queries the SAP Data Warehouse Cloud tenant for details about the named spaces.  If no names are provided, all spaces in the tenant will be included.  For each name listed, the "spaces list" command can perform a wildcard search based on name matches.  For instance, adding the --wildcard flag and the space name "TRAINING" finds spaces such as "TRAINING_BOB", "FINANCE_TRAINING", and "HRFINANCE".
+
+|Parameter|Description|
+|---------|-----------|
+|spaceName|space name(s) to list|
+|-f, --format|output style: 'hana', 'csv', 'json', 'text'|
+|-p, --prefix|prefix for output, default="DWC_SPACES"|
+|-w, --wildcard|seach expansion of space names (default = false)|
+|-o, --output|filename for output|
+
+### Command: spaces create
+### Command: spaces delete
+### Command: spaces bulk
+#### Command: spaces bulk create
+#### Command: spaces bulk delete
+### Command: spaces members
+### Command: shares
+### Command: connections
 ## Creating SAP Data Warehouse Cloud artificats ##
 Commands:
 - config
