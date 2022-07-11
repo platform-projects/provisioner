@@ -10,7 +10,12 @@
   * [3.2 - Git](#check-git)
   * [3.3 - SAP HANA configuration](#hana)
 * [4.0 - Download and Configuration](#download)
-* [5.0 - Command Syntax](#syntax)
+* [5.0 - Provisioner Configuration](#config)
+* [6.0 - Command Syntax](#syntax)
+* [7.0 - Examples](#example)
+* [8.0 - stuff]
+  * [8.1 - Known Issues](#issues)
+  * [8.2 - ]
 ## <a href="#description"></a>1.0 Description
 This sample tool shows how to programatically create, update and delete SAP Data Warehouse Cloud artifacts. It is written in Python and demonstrates how to:
 - create and remove spaces with a simplified command line
@@ -19,29 +24,31 @@ This sample tool shows how to programatically create, update and delete SAP Data
 - create and remove shared objects from one space to another
 - generate a set of HANA tables for analytics
 
-## Requirements
-### Required
+## 2.0 - Requirements
+To successfully run this tool various enviro
+### 2.1 - Required
 - SAP Data Warehouse Cloud administrator access, i.e., user with <span style="color: green">**DW&nbsp;Administrator**</span> privilege
-- [Python version 3.8](https://www.python.org/downloads/ "download") or higher
-- [Git (latest version)](https://git.com "download")
-### Optional
+- [Python version 3.8](https://www.python.org/downloads "Download") or higher
+### 2.2 - Optional
+- [Git (latest version)](https://git.com "Download")
 - Access to an SAP HANA (on-prem or cloud) schema
+### 2.3 - Development
 - [Node (latest version)](https://nodejs.com/en/download)
 - SAP @sap/dwc_cli
 
-## Check your environment
-### Python
-The tool requires Python 3.8 (or higher) to be available.  Use one of the following command to verify the Python installation.
+## 3.0 Check your environment
+To ensure success when running this tool, please use the following steps to ensure the software requirements have been met.
+### 3.1 - Python
+The tool requires Python 3.8 (or higher) to be available.  Use the following command to verify the Python installation.
 
-<span style="color: gray">_Note_: the latest versions of Python include both <span style="color: white">_python_</span> and <span style="color: white">_python3_</span> commands.</span>
-
+><span style="color: gray">_Note_: the latest versions of Python include both <span style="color: white">_python_</span> and <span style="color: white">_python3_</span> commands.</span>
 
 ```
 ubuntu@ip-17-1-3-11:~$ python --version
 Python 3.10.4
 ubuntu@ip-17-1-3-11:~$
 ```
-### Git
+### 3.2 - Git
 To retrieve the tool from GitHub, the command line version of Git is an easy way to download the project to a local directory. The project may also be downloaded from GitHub using a browser.
 
 ```
@@ -50,14 +57,11 @@ git version 2.37.0.windows.1
 
 C:\>
 ```
-### Configure HANA allow list (optional)
-To create and store information about SAP Data Warehouse cloud structures in an SAP HANA Cloud instance, please ensure the IP address where this tool runs is in the allow list for SAP HANA Cloud connections.  In the example below, an SAP Data Warehouse Cloud Data Access User (a.k.a., hash-tag (#) user) is the target so in SAP Data Warehouse Cloud set the IP Allow list under the System / Configuration tab.
-
-![SAP Data Warehouse Cloud - IP Allowlist](images/allowlist.png)
-## Download and Installation
+## 4.0 - Download and Installation
 Clone or download this repository to a directory. In all the examples in this README, a directory named "tools" will be used.  The commands to download the project are similar for all major operating systems, i.e., Linux, Windows, and Mac OS X.
 
-### Ubuntu Linux
+### 4.1 - Download 
+### 4.1.1 - Ubuntu Linux
 From the home directory of the user Ubuntu:
 ```bash
 ubuntu@ip-17-1-3-11:~$ mkdir tools
@@ -65,14 +69,14 @@ ubuntu@ip-17-1-3-11:~$ cd tools>
 ubuntu@ip-17-1-3-11:~$ git clone https://github.com/platform-projects/provisioner
 ```
 
-### Windows
+### 4.1.2 - Windows
 Open a command window (cmd):
 ```
 c:\> mkdir c:\tools
 c:\> cd c:\tools
 c:\> git clone https://github.com/platform-projects/provisioner
 ```
-### MacOS
+### 4.1.3 - MacOS
 From a terminal session:
 ```I852681@YYQP76KF4P ~ % mkdir tools
 I852681@YYQP76KF4P ~ % cd tools
@@ -86,11 +90,11 @@ Receiving objects: 100% (103/103), 191.43 KiB | 1.45 MiB/s, done.
 Resolving deltas: 100% (54/54), done.
 I852681@YYQP76KF4P tools % 
 ```
-### Optional Python setup
+### 4.2 - Optional Python setup
 Python allows you to create "virtual environments" to help manage dependencies between various packages and versions of packages.  <span style="font-weight: bold; color: green">It is a best practice</span> to create virtual environments for each project.  Without a virtual enviroment, all packages are installed in the "global" space and all projects will share the same package versions.
 >https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
 
-#### Install the Python virtual environment tool.
+#### 4.2.1 - Install the Python virtual environment tool.
 ##### Ubuntu
 ```
 sudo apt install python3-venv
@@ -99,7 +103,10 @@ sudo apt install python3-venv
 ```
 python -m pip install --user virtualenv
 ```
-#### Configure a virtual environment
+#### 4.2.2 - Configure a virtual environment
+Python virtual environments must be explicity created and activated.
+
+
 ubuntu@ip-172-31-83-11:~/tools$ cd provisioner
 ubuntu@ip-172-31-83-11:~/tools$ cat activate
 
@@ -130,9 +137,17 @@ If the environment is activated correctly, a previx (.venv) is shown in the comm
 (.venv) c:\tools\provisioning> python -m pip install -r requirements/core.txt
 ```
 
-## Provisioner Configuration
-Before you can run commands against SAP Data Warehouse Cloud tenants, you must set the identify the target tenant and set the username and password values.
+### Configure HANA allow list (optional)
+To create and store information about SAP Data Warehouse cloud structures in an SAP HANA Cloud instance, please ensure the IP address where this tool runs is in the allow list for SAP HANA Cloud connections.  In the example below, an SAP Data Warehouse Cloud Data Access User (a.k.a., hash-tag (#) user) is the target so in SAP Data Warehouse Cloud set the IP Allow list under the System / Configuration tab.
+![SAP Data Warehouse Cloud - IP Allowlist](images/allowlist.png)
+
+
+
+## 5.0 - Provisioner Configuration
+Before using this tool an SAP Data Warehouse Cloud tenant, a configuration file must be you must set the identify the target tenant and set the username and password values.
 ```
+c:\> cd tools\provisioner
+c:\> .venv\scripts\activate
 (.venv) c:\tools> python provisioner\src\provisioner.py config
   --dwc-url https://{your-tenant}.{ds}.hcs.cloud.sap
   --dwc-user user.name@domain.com
