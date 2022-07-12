@@ -148,7 +148,7 @@ Before using this tool an SAP Data Warehouse Cloud tenant, a configuration file 
 ```
 c:\> cd tools\provisioner
 c:\> .venv\scripts\activate
-(.venv) c:\tools> python provisioner\src\provisioner.py config
+(.venv) c:\tools\provisioner> provisioner config
   --dwc-url https://{your-tenant}.{ds}.hcs.cloud.sap
   --dwc-user user.name@domain.com
   --dwc-password NotYourPassword!
