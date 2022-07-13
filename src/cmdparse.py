@@ -42,6 +42,7 @@ def config_parser():
     user_list_parser.add_argument("-o", "--output",   help="filename for output")
     user_list_parser.add_argument("-f", "--format",   help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
     user_list_parser.add_argument("-p", "--prefix",   help="output prefix for writing", default="DWC_USERS")
+    user_list_parser.add_argument("-w", "--wildcard", help="seach expansion of user names", default=False, action="store_true")
     user_list_parser.add_argument('users', help='list of user patterns', nargs=argparse.REMAINDER)
 
     # Script command - only takes a file name
@@ -135,6 +136,11 @@ def config_parser():
     # Start the SHARES command
     share_parser = global_subparsers.add_parser('shares', help='Create, delete and list shares in space(s)')
     share_subparsers = share_parser.add_subparsers(help="share command", dest="subcommand")
+
+    share_list_parser = share_subparsers.add_parser('list', help='shares create command help')
+    share_list_parser.add_argument("-s", "--sourceSpace", help="source space with object to share")
+    share_list_parser.add_argument("-o", "--sourceObject", help="source object technical name to share")
+    share_list_parser.add_argument("-t", "--targetSpace", help="target space(s) getting the share")
 
     share_create_parser = share_subparsers.add_parser('create', help='shares create command help')
     share_create_parser.add_argument("sourceSpace", help="source space with object to share")

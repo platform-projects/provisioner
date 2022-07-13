@@ -1,0 +1,4 @@
+﻿Space Id,Label,Disk,Memory,Template,Force,User 1,User 2,User 3,etc
+SAMPLE_SPACE_1,Sample Space,1,.5,FINANCE_DATA,true,mark.greynolds@sap.com
+SAMPLE_SPACE_2,,,.5,,true,mark.greynolds@sap.com,ben.benavides@sap.com
+SAMPLE_TEST,Test Space,.2,.2,,false,mark.greynolds@sap.com

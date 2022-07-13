@@ -16,7 +16,7 @@ def users_list(user_args):
 
     user_list = []  # We love lists.
     
-    for user in session_config.dwc.get_users(user_args.users):
+    for user in session_config.dwc.get_users(user_args.users, wildcard=user_args.wildcard):
         # Do some fixup to streamline the user information.
         user["email"] = user["parameters"]["EMAIL"]
         user["display_name"] = user["parameters"]["DISPLAY_NAME"]

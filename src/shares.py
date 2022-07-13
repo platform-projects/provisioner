@@ -9,9 +9,18 @@ def process(share_args):
 
     logger.setLevel(session_config.log_level)
     
-    if share_args.subcommand == "create":
+    if share_args.subcommand == "list":
+        shares_list(share_args)
+    elif share_args.subcommand == "create":
         shares_create(share_args)
+    elif share_args.subcommand == "delete":
+        shares_list(share_args)
+    else:
+        logger.error(f"process: unexpected subcommand: {share_args.subcommand}")
 
+def shares_list(share_args):
+    x = 1
+    
 def shares_create(share_args):
     # NOTE: We DO NOT validate the object to share - the
     # share operation will report any error.
@@ -30,3 +39,6 @@ def shares_create(share_args):
         return
 
     session_config.dwc.add_share(share_args.sourceSpace, share_args.sourceObject, target_spaces)
+
+def shares_delete(share_args):
+    x = 1

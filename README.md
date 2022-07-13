@@ -230,11 +230,41 @@ The "spaces list" command queries the SAP Data Warehouse Cloud tenant for detail
 |-o, --output|filename for output|
 
 ### Command: spaces create
+|Parameter|Description|
+|---------|-----------|
+|--label | optional label to assign - defaults to spaceId|
+|-t, --template | Space name to use as a template|
+|-d, --disk | Disk allocated to space|
+|-m, --memory | Memory allocated to space|
+|-f, --force | force the re-creation if space exists|
+|spaceName | space name to create|
+|users | users to add to the space|
+
 ### Command: spaces delete
+|Parameter|Description|
+|---------|-----------|
+| spaceName | space name(s) to create |
+
 ### Command: spaces bulk
+Space Id,Label,Disk,Memory,Template,Force,User 1,User 2,User 3,etc
 #### Command: spaces bulk create
+|Parameter|Description|
+|---------|-----------|
+|-s, --skip | header lines to skip in the CSV file, default="1" |
+|-f, --force | force the re-creation if space exists |
+|-t, --template | Space name to use as a template |
+|filename | CSV file containing spaces to create |
+
+
 #### Command: spaces bulk delete
+|Parameter|Description|
+|---------|-----------|
+|-s, --skip | header lines to skip in the CSV file, default="1" |
+|filename | CSV file containing space names to delete |
+
 ### Command: spaces members
+#### Command: spaces member add
+#### Command: spaces member delete
 ### Command: shares
 ### Command: connections
 ## Creating SAP Data Warehouse Cloud artificats ##
