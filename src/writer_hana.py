@@ -1,4 +1,5 @@
 import logging
+import time, datetime as dt
 
 from hdbcli import dbapi
 
@@ -10,7 +11,7 @@ conn = None
 cursor = None
 
 timestamps = [ "createTime", "validFrom", "lastSuccessfulConnect", "lastInvalidConnectAttempt", "modification_date", "creation_date" ]
-date_fields = []
+date_fields = [ "LAST_LOGIN_DATE" ]
 
 def hana_connect():
     '''Connect to HANA
@@ -21,8 +22,6 @@ def hana_connect():
     '''
 
     global conn, cursor
-
-    logger.debug("Entering hana_connect...")
 
     if conn is None:
         if config.get_config_param("hana", "hana_encrypt") == "True":
@@ -211,6 +210,12 @@ def execute_dml(ddl, statement_name, list_data, param_name):
                     #       formatting that do not need to be adjusted.
 
                     insert_values[column_def["name"]] = row[column_name][0:23]
+                elif column_name in date_fields:
+                    # This is an epoch date, convert the value before
+                    epoch_time = time.gmtime(int(row[column_name][0:10]))
+                    date_value = dt.datetime(*epoch_time[:7]).strftime("%Y-%m-%d %H:%M:%S")
+
+                    insert_values[column_def["name"]] = date_value
                 elif column_def["type"] == 'CLOB':
                     # Convert complex objects to strings that get inserted as CLOB values
                     insert_values[column_def["name"]] = str(row[column_name])

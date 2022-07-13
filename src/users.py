@@ -17,14 +17,11 @@ def users_list(user_args):
     user_list = []  # We love lists.
     
     for user in session_config.dwc.get_users(user_args.users, wildcard=user_args.wildcard):
-        # Do some fixup to streamline the user information.
-        user["email"] = user["parameters"]["EMAIL"]
-        user["display_name"] = user["parameters"]["DISPLAY_NAME"]
-        
-        if "NUMBER_OF_DAYS_VISITED" in user["parameters"]:
-            user["number_of_days_visited"] = user["parameters"]["NUMBER_OF_DAYS_VISITED"]
-        else:
-            user["number_of_days_visited"] = None
+        # Do some fixup to streamline the user information by pulling some
+        # specific attributes up from subobjects.
+
+        utility.copy_scaler_attributes(source=user["parameters"], target=user)
+        utility.copy_scaler_attributes(source=user["metadata"], target=user)
 
         # ETL note:
         # It is possible for a user to have no roles.  If roles are present, pivot

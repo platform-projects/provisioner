@@ -51,5 +51,19 @@ def write_json(json_name, object):
 
     return json_file
 
-if __name__ == "__main__":
-    write_json("mark", {})
+def copy_scaler_attributes(source, target):
+    if not isinstance(source, dict):
+        return target
+
+    if target is None:
+        target = {}
+        
+    if not isinstance(target, dict):
+        return None
+
+    for key in source.keys():
+        if isinstance(source[key], str) or isinstance(source[key], bool) or isinstance(source[key], int):
+            if key not in target:
+                target[key] = source[key]
+
+    return target
