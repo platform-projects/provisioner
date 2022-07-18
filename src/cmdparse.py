@@ -126,7 +126,7 @@ def config_parser():
     conn_delete_parser.add_argument("connectionName", help="connection name to delete")
 
     conn_list_parser = conn_subparsers.add_parser('list', help='Connection list command')
-    conn_list_parser.add_argument("-w", "--wildcard",     help="Use wildcard lookup for space name (default=true)", action="store_true")
+    conn_list_parser.add_argument("-w", "--wildcard",     help="Use wildcard lookup for space name (default=false)", action="store_true")
     conn_list_parser.add_argument("-c", "--connection",   help="connection name to list from space")
     conn_list_parser.add_argument("-f", "--format",       help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
     conn_list_parser.add_argument("-p", "--prefix",       help="output prefix", default="DWC_CONNECTIONS")
@@ -143,6 +143,7 @@ def config_parser():
     share_list_parser.add_argument("-t", "--targetSpace", help="target space(s) getting the share")
 
     share_create_parser = share_subparsers.add_parser('create', help='shares create command help')
+    share_create_parser.add_argument("-w", "--wildcard", help="Use wildcard lookup for space name (default=false)", action="store_true")
     share_create_parser.add_argument("sourceSpace", help="source space with object to share")
     share_create_parser.add_argument("sourceObject", help="source object technical name to share")
     share_create_parser.add_argument("targetSpace", help="target space(s) getting the share")
