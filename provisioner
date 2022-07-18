@@ -9,4 +9,4 @@ fi
 curPath=$(pwd)
 srcPath=${curPath}/src
 
-${pythonCmd} ${srcPath}/provisioner.py %*
+${pythonCmd} ${srcPath}/provisioner.py $*
