@@ -21,6 +21,7 @@ class DWCSession:
                       "spaces_resources"  : "#dwc_url/dwaas-core/resources/spaces",
                       "space"             : "#dwc_url/dwaas-core/api/v1/content?space={space_name}&spaceDefinition=true",
                       "shares"            : "#dwc_url/dwaas-core/repository/shares",
+                      "share_list"        : "#dwc_url/dwaas-core/repository/shares?spaceName={spaceName}&objectNames={objectNames}",
                       "connections"       : "#dwc_url/dwaas-core/repository/remotes?space_ids={space_id}&inSpaceManagement=true&details=",
                       "connection"        : '#dwc_url/dwaas-core/repository/remotes/?space_ids={}&inSpaceManagement=true',
                       "connection_delete" : "#dwc_url/dwaas-core/repository/remotes/{}?space_ids={}",
@@ -342,6 +343,59 @@ class DWCSession:
 
         return space
 
+    def get_shares(self, space_name=None, object_name=None, target=None, wildcard=False):
+        shares_list = []
+        
+        # Figure out which spaces we are looking in - if nothing was passed
+        # we will look in all spaces.
+        
+        spaces = self.get_space_list(space_name, wildcard=wildcard)
+        
+        if len(spaces) == 0:
+            logger.warn("get_shares: No matching spaces found.")
+            return shares_list
+        
+        # If an object_name was passed (even if wildcard), look for those
+        # matching objects across the spaces we are searching (or all).
+        
+        for space in spaces:
+            # Get the list of shared objects for this space.
+            objects = self.get_data_builder_objects(space, shared_only=True)
+            
+            # Skip spaces without any data builder objects that have been shared.
+            if len(objects) == 0:
+                continue
+        
+            # Compose the comma separated list of object names having shares
+            
+            search_objects = ""
+            comma = ""
+            
+            for object in objects:
+                search_objects += comma + object["name"]
+                comma = ","
+                    
+            if len(search_objects) == 0:
+                continue
+            
+            # Ask for the all the shares for this space.
+            shares = self.get_json("share_list", values={ "spaceName" : space["name"], "objectNames" : search_objects })
+            
+            # We should get back a dictionary of objects with each object listing
+            # their shares.  Loop over to see if we are only looking for a specific
+            # space.
+            
+            for object_name in shares:
+                for share in shares[object_name]:
+                    share_item = { "spaceName" : space["name"],
+                                   "objectName" : object_name,
+                                   "targetSpace" : share["name"]
+                                 }
+            
+                    shares_list.append(share_item)
+        
+        return shares_list
+            
     def add_share(self, space_name, object_name, targets):
         data = { "spaceName"         : space_name,
                  "objectNames"       : [ object_name ],
@@ -541,15 +595,27 @@ class DWCSession:
         return return_users
 
     def get_space_name(self, space):
+        space_name = None
+        
         if isinstance(space, dict):
-            space_name = next(iter(space))
+            # If the name attribute is a direct value of this dictionary,
+            # assume this is space from a space_list query.
+            
+            if "name" in space:
+                space_name = space["name"]
+            else:
+                # Assume this is a space object where the name is
+                # the FIRST dictionary key.  In this type of object
+                # there must be a spaceDefinition object.
+                
+                space_name = next(iter(space))
 
-            if "spaceDefinition" in space[space_name]:
-                return space_name
+                if "spaceDefinition" not in space[space_name]:
+                    logger.warn("get_space_name: invalid space object.")
         elif isinstance(space, str):
-            return space
+            space_name = space
 
-        return None
+        return space_name
 
     def get_dbuser_objects(self, space_name, dbuser_hashtags):
 
@@ -580,32 +646,44 @@ class DWCSession:
         else:
             return []
 
-    def get_data_builder_objects(self, space):
+    def get_data_builder_objects(self, space, shared_only=False):
         space_name = self.get_space_name(space)
 
-        if space_name is None:
-            return None
+        # Pick the types of objects to include...
+        objects_query = '('
+        objects_query += 'technical_type:EQ:"DWC_REMOTE_TABLE"'
+        objects_query += ' OR technical_type:EQ:"DWC_LOCAL_TABLE"'
+        objects_query += ' OR technical_type:EQ:"DWC_VIEW"'
+        objects_query += ' OR technical_type:EQ:"DWC_ERMODEL"'
+        objects_query += ' OR technical_type:EQ:"DWC_DATAFLOW"'
+        objects_query += ' OR technical_type:EQ:"DWC_IDT"'
+        objects_query += ' OR kind:EQ:"sap.dis.dataflow"'
+        objects_query += ' OR kind:EQ:"sap.dwc.dac"'
+        objects_query += ' OR kind:EQ:"sap.dwc.taskChain"'
+        objects_query += ')'
 
-        objects_query = "Search.search("
-        objects_query += "query='"
-        objects_query +=   "SCOPE:SEARCH_DESIGN ("
-        objects_query +=     "technical_type:EQ:DWC_REMOTE_TABLE"
-        objects_query +=     " OR technical_type:EQ:DWC_LOCAL_TABLE"
-        objects_query +=     " OR (technical_type:EQ:DWC_VIEW AND business_type:NE:DWC_CUBE)"
-        objects_query +=     " OR technical_type:EQ:DWC_ERMODEL"
-        objects_query +=     " OR (technical_type:EQ:DWC_IDT AND kind:EQ:entity)"
-        objects_query +=     " OR technical_type:EQ:DWC_DATAFLOW"
-        objects_query +=     " OR kind:EQ:sap.dis.dataflow"
-        objects_query +=     " OR technical_type:EQ:DWC_TASKCHAIN OR kind:EQ:sap.dwc.taskChain"
-        objects_query +=   ")"
-        objects_query += "'"  # Close query
-        objects_query += ')'  # Close Search.search
+        # If asked, make sure to only return objects that have been shared
+        if shared_only:
+            objects_query += ' AND shared_with_space_name:NE(S):"NULL"'
 
-        query_columns = [   "id","name","business_name","kind","creation_date","modification_date","owner","creator",
-                            "changed_by_user_name","creator_user_name","business_type","technical_type","is_shared",
-                            "type","type_label","deployment_date","object_status","object_status_icon","object_status_description",
-                            "technical_type_description","technical_type_icon","business_type_description","business_type_icon"
-                        ]
+        # If we have a space_id, add it to the query.            
+        if space_name is not None:
+            objects_query += f' AND space_name:EQ:"{space_name}"'
+
+        # Complete the query specification by wrapping in a SCOPE   
+        objects_query = f"query='SCOPE:SEARCH_DESIGN ({objects_query}) *'"
+        
+        # URL encode just the objects query piece
+        objects_query = urllib.parse.quote(objects_query)
+        
+        # Build the full search object
+        objects_query = f"Search.search({objects_query})"
+
+        # query_columns = [   "id","name","business_name","kind","creation_date","modification_date","owner","creator",
+        #                     "changed_by_user_name","creator_user_name","business_type","technical_type","is_shared",
+        #                     "type","type_label","deployment_date","object_status","object_status_icon","object_status_description",
+        #                     "technical_type_description","technical_type_icon","business_type_description","business_type_icon"
+        #                 ]
 
         CONST_DOLLAR = '%24'
 
@@ -613,18 +691,23 @@ class DWCSession:
         db_objects_query += '&'
         db_objects_query += CONST_DOLLAR + 'skip=0'
         db_objects_query += '&'
-        db_objects_query += CONST_DOLLAR + 'apply=filter(' + objects_query + " and space_name eq '{}')".format(space_name)
+        db_objects_query += CONST_DOLLAR + f"apply=filter({objects_query})"
         db_objects_query += '&'
         db_objects_query += CONST_DOLLAR + 'count=true'
-        db_objects_query += '&'
-        db_objects_query += CONST_DOLLAR + 'select=' + "%2C".join(query_columns)
+        #db_objects_query += '&'
+        #db_objects_query += CONST_DOLLAR + 'select=' + "%2C".join(query_columns)
 
         db_objects_query =  self.get_dwc_url() + "/dwaas-core/repository/search/$all?" + db_objects_query
 
-        if "builder_objects" not in self.urls:
-            self.urls["builder_objects"] = db_objects_query
+        # Park the just constructed URL in the list of the session.  This makes
+        # calling and getting JSON a standard operation.
+        
+        self.urls["builder_objects"] = db_objects_query
 
-        return self.get_json("builder_objects")
+        # Go get the objects
+        builder_objects = self.get_json("builder_objects")
+        
+        return builder_objects["value"]   # Return the list of objects.
 
     def get_business_builder_objects(self, space_name):
         business_builder_query = {

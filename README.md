@@ -17,7 +17,7 @@
   * [8.1 - Known Issues](#issues)
   * [8.2 - ]
 ## <a href="#description"></a>1.0 Description
-This sample tool shows how to programatically create, update and delete SAP Data Warehouse Cloud artifacts. It is written in Python and demonstrates how to:
+This sample tool shows how to programmatically create, update and delete SAP Data Warehouse Cloud artifacts. The tool, referred to as **provisioner**, is written in Python and demonstrates how to automate various SAP Data Warehouse Cloud provisioning activities. The **provisioner** can perform the following actions against SAP Data Warehouse Cloud tenants:
 - create and remove spaces with a simplified command line
 - bulk create and remove spaces using a CSV file
 - create and remove connections in one, or many spaces

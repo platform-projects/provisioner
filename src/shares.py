@@ -1,6 +1,7 @@
 import logging
 
-import session_config, utility
+import session_config
+import writer
 
 logger = logging.getLogger("shares")
 
@@ -19,7 +20,12 @@ def process(share_args):
         logger.error(f"process: unexpected subcommand: {share_args.subcommand}")
 
 def shares_list(share_args):
-    x = 1
+    shares = session_config.dwc.get_shares(share_args.sourceSpace, 
+                                           share_args.sourceObject, 
+                                           share_args.targetSpace, 
+                                           share_args.wildcard)
+    
+    writer.write_list(shares, share_args)
     
 def shares_create(share_args):
     # NOTE: We DO NOT validate the object to share - the

@@ -138,9 +138,13 @@ def config_parser():
     share_subparsers = share_parser.add_subparsers(help="share command", dest="subcommand")
 
     share_list_parser = share_subparsers.add_parser('list', help='shares create command help')
-    share_list_parser.add_argument("-s", "--sourceSpace", help="source space with object to share")
-    share_list_parser.add_argument("-o", "--sourceObject", help="source object technical name to share")
-    share_list_parser.add_argument("-t", "--targetSpace", help="target space(s) getting the share")
+    share_list_parser.add_argument("-w", "--wildcard",     help="Use wildcard lookup for space name, object, or target (default=false)", action="store_true")
+    share_list_parser.add_argument("-f", "--format",       help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
+    share_list_parser.add_argument("-p", "--prefix",       help="output prefix", default="DWC_SHARES")
+    share_list_parser.add_argument("-o", "--output",       help="filename for output")
+    share_list_parser.add_argument("-s", "--sourceSpace",  help="source space with object to share")
+    share_list_parser.add_argument("-b", "--sourceObject", help="source object technical name to share")
+    share_list_parser.add_argument("-t", "--targetSpace",  help="target space(s) getting the share")
 
     share_create_parser = share_subparsers.add_parser('create', help='shares create command help')
     share_create_parser.add_argument("-w", "--wildcard", help="Use wildcard lookup for space name (default=false)", action="store_true")

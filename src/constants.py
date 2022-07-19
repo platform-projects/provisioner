@@ -76,18 +76,19 @@ default_space_definition = {
 # s = string
 # e = epoch date
 # g = gigabyte (=#/1GB)
+#       { "type" : "row", "path" : "roles_list", "layout" : "  Role: {role_name}\n" }
 
 templates = {
   "users" : {
     "fields" : {
-      "user_name"      : { "path" : "userName",                   "format" : "25s", "heading" : "User" },
-      "user_email"     : { "path" : "parameters.EMAIL",           "format" : "35s", "heading" : "Email" },
-      "user_lastLogin" : { "path" : "parameters.LAST_LOGIN_DATE", "format" : "10e", "heading" : "Last Login" },
-      "role_name"      : { "path" : "roleName",                   "format" : "30s", "heading" : "Role" }
+      "user_name"         : { "path" : "$.userName",               "format" : "25s", "heading" : "User" },
+      "user_email"        : { "path" : "$.EMAIL",                  "format" : "35s", "heading" : "Email" },
+      "user_lastLogin"    : { "path" : "$.LAST_LOGIN_DATE",        "format" : "10e", "heading" : "Last Login" },
+      "user_days_visited" : { "path" : "$.NUMBER_OF_DAYS_VISITED", "format" : "10s", "heading" : "Days Visited" },
+      "role_name"         : { "path" : "$.roleName",               "format" : "30s", "heading" : "Role" }
     },
     "rows" : [
-      { "type" : "row", "layout" : "{user_name} {user_email} {user_lastLogin}\n" },
-      { "type" : "list", "path" : "roles_list", "layout" : "  Role: {role_name}\n" }
+      { "type" : "row", "layout" : "{user_name} {user_email} {user_lastLogin} {user_days_visited}\n" }
     ]
   },
   "spaces" : {
@@ -104,5 +105,16 @@ templates = {
       { "type" : "row", "layout" : "{space_name} {space_memory_assigned} {space_memory_used} {enabledDataLake} {space_dbusers}\n" },
       { "type" : "row", "path" : "$.members", "layout" : "  Member(s): {space_members}" }
     ]
+    },
+    "shares" : {
+    "fields" : {
+      "space_name"   : { "path" : "$.spaceName",   "format" : "30s" },
+      "object_name"  : { "path" : "$.objectName",  "format" : "30s" },
+      "target_space" : { "path" : "$.targetSpace", "format" : "30s" }
+    },
+    "rows" : [
+      { "type" : "row", "layout" : "{space_name} {object_name} {target_space}\n" },
+    ]
     }
+
   }
