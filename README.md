@@ -17,15 +17,16 @@
   * [8.1 - Known Issues](#issues)
   * [8.2 - ]
 ## <a href="#description"></a>1.0 Description
-This sample tool shows how to programmatically create, update and delete SAP Data Warehouse Cloud artifacts. The tool, referred to as **provisioner**, is written in Python and demonstrates how to automate various SAP Data Warehouse Cloud provisioning activities. The **provisioner** can perform the following actions against SAP Data Warehouse Cloud tenants:
+This sample tool is an example of how to programmatically create, update and delete SAP Data Warehouse Cloud artifacts. The tool, referred to as **provisioner**, is written in Python and demonstrates how to automate various SAP Data Warehouse Cloud provisioning activities. The **provisioner** can perform the following actions against SAP Data Warehouse Cloud tenants:
 - create and remove spaces with a simplified command line
 - bulk create and remove spaces using a CSV file
 - create and remove connections in one, or many spaces
 - create and remove shared objects from one space to another
+- create scripts of multiple commands
 - generate a set of HANA tables for analytics
 
 ## 2.0 - Requirements
-To successfully run this tool various enviro
+Before running the **provisioner**, the following configurations and 3rd party components must be available.
 ### 2.1 - Required
 - SAP Data Warehouse Cloud administrator access, i.e., user with <span style="color: green">**DW&nbsp;Administrator**</span> privilege
 - [Python version 3.8](https://www.python.org/downloads "Download") or higher
@@ -34,10 +35,10 @@ To successfully run this tool various enviro
 - Access to an SAP HANA (on-prem or cloud) schema
 ### 2.3 - Development
 - [Node (latest version)](https://nodejs.com/en/download)
-- SAP @sap/dwc_cli
+- [SAP @sap/dwc_cli](https://www.npmjs.com/package/@sap/dwc-cli)
 
 ## 3.0 Check your environment
-To ensure success when running this tool, please use the following steps to ensure the software requirements have been met.
+To ensure success when running this tool, please use the following steps to validate the software requirements have been met.
 ### 3.1 - Python
 The tool requires Python 3.8 (or higher) to be available.  Use the following command to verify the Python installation.
 
@@ -49,7 +50,7 @@ Python 3.10.4
 ubuntu@ip-17-1-3-11:~$
 ```
 ### 3.2 - Git
-To retrieve the tool from GitHub, the command line version of Git is an easy way to download the project to a local directory. The project may also be downloaded from GitHub using a browser.
+To retrieve the **provisioner** from GitHub, the command line version of Git is an easy way to download the project to a local directory. The project may also be downloaded from GitHub using a browser.
 
 ```
 C:\>git --version
@@ -62,23 +63,22 @@ Clone or download this repository to a directory. In all the examples in this RE
 
 The commands to download the project are similar for all major operating systems, i.e., Linux, Windows, and Mac OS X.
 
-### 4.1 - Download 
-### 4.1.1 - Ubuntu Linux
-From the home directory of the user Ubuntu:
+### 4.1 - Ubuntu Linux
+From the home directory of the user _ubuntu_:
 ```bash
 ubuntu@ip-17-1-3-11:~$ mkdir tools
 ubuntu@ip-17-1-3-11:~$ cd tools>
 ubuntu@ip-17-1-3-11:~$ git clone https://github.com/platform-projects/provisioner
 ```
 
-### 4.1.2 - Windows
+### 4.2 - Windows
 Open a command window (cmd):
 ```
 c:\> mkdir c:\tools
 c:\> cd c:\tools
 c:\> git clone https://github.com/platform-projects/provisioner
 ```
-### 4.1.3 - MacOS
+### 4.3 - MacOS
 From a terminal session:
 ```bash
 I852681@YYQP76KF4P ~ % mkdir tools

@@ -25,18 +25,21 @@ def users_list(user_args):
 
         # ETL note:
         # It is possible for a user to have no roles.  If roles are present, pivot
-        # the string into a list of roles to support reporting.
+        # the string into a list of roles to support parent/child reporting.
         
-        if len(user["roles"].strip()) > 0:
+        if "roles" in user and len(user["roles"].strip()) > 0:
             # This is a multi-value string field separated by semi-colons
             
             roles = user["roles"].split(";")
-            user["roles_list"] = []  # Add the list as a separate field
+            
+            # Add the list as a new list to the current user.
+            user["roles_list"] = []  
 
             for role in roles:
                 # Add referential integrity to the roles based on userName
                 user["roles_list"].append({ "userName" : user["userName"], "roleName" : role })
 
+        # Add to the list of user we will be writing.
         user_list.append(user)
 
     # The ETL is complete and we have the users and their roles, output the list.

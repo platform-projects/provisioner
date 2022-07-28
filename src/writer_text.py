@@ -1,142 +1,177 @@
-import logging, re, time, sys
+import logging, re, time, sys, math
 
 import constants, session_config
+import json_tools as jt
 
 logger = logging.getLogger("write_text")
 
-def json_path(data, field):
-    if not isinstance(field, str) or len(field.strip()) == 0:
-        logger.error("json_value: invalid JSON spec".format(str(field)))
-        return None
-    
-    json_value = None
-    
-    path_specs = field.strip().split(".")  # We want to be able to index the path as we loop
-    
-    for path_indx in range(0, len(path_specs)):
-        path_spec = path_specs[path_indx]
-        
-        if path_spec == "$":
-            json_value = data
-        elif path_spec.startswith("*"):  # Expecting a dictionary
-            array_spec = re.search(r"\[(.*?)\]", path_spec)  # Maybe a list of subscripts
+class FieldFormat:
+    #data members of class
+    spec = None
+    format = None
+    width = None
+   
+    #class default constructor
+    def __init__(self,format_spec=None):  
+        self.set_spec(format_spec)
 
-            # We must be on a dictionary or array.
-            if isinstance(json_value, list):
-                return json_value
-            
-            if isinstance(json_value, dict):
-                dict_value = []
-                
-                for key in json_value.keys():
-                    dict_value.append({ "key" : key, "value" : json_value[key] })
-                    
-                return dict_value
-        elif path_spec.find("[") != -1 and path_spec.endswith("]"):
-            array_spec = re.search(r"\[(.*?)\]", path_spec)
-            path_spec = path_spec[0:path_spec.find("[")]
+    def set_spec(self, format_spec):
+        self.spec = format_spec
 
-            json_value = json_value[path_spec]  # Pull out the array
-            
-            if array_spec.group(1) != "*":
-                array_index = int(array_spec.group(1))
-                
-                if len(json_value) == 0 or array_index > len(json_value) - 1:
-                    json_value = None
-                else:
-                    json_value = [ json_value[array_index] ]                
+        if format_spec is None:
+            self.format = None
+            self.width = None
         else:
-            if path_spec not in json_value:
-                logger.debug(f"json_value: invalid path - {path_spec}")
-                json_value = None
-                break
-            else:
-                if json_value is None:
-                    logger.debug(f"json_value: invalid path {path_spec}")
-                    break
-                
-                json_value = json_value[path_spec]
+            self.format = format_spec[-1]
+            self.width = int(format_spec[0:-1])
+
+    def get_width(self):
+        return self.width
     
-    return json_value
+    def get_format(self):
+        return self.format
     
-def lookup_value(data, field):
+    def is_epoch(self):
+        return self.get_format() == "e"
+    
+    def is_gigabyte(self):
+        return self.get_format() == "g"
+    
+def lookup_value(data, field_def):
     # Get the requested value - invalid lookups always return a None value.
+    lookup_value = ""
     
-    lookup_value = None
+    # Set a default formatting to None
+    format = FieldFormat()
     
-    if isinstance(field, dict):  # Did we get a field specification that includes a path?
-        if "path" in field:
-            lookup_value = json_path(data, field["path"])
+    # Did we get a field specification from the template that includes a path?
+    if isinstance(field_def, dict):  
+        if "path" in field_def:
+            lookup_value = jt.json_path(data, field_def["path"])
         else:
-            logger.debug("lookup_value: path not found")  # Must include a "path" attribute
-    elif isinstance(field, str):
-        # Specific "path" not included in a field definition - should really just call json_path
-        lookup_value = json_path(data, field)
-    else:
-        logger.debug(f"lookup_value: path not found: {field}")
+            # Must include a { "path" : "??" } attribute
+            logger.debug("lookup_value: path not found")
+            return lookup_value
 
-    # We have value, handle type conversion and formatting.
+        # There may be a formatting specification for this field definition.        
+        if "format" in field_def:
+            format.set_spec(field_def["format"])
+
+    elif isinstance(field_def, str):
+        # Specific "path" string not included in a field definition.
+        # The caller really should just call json_path.
+        lookup_value = jt.json_path(data, field_def)
+    else:
+        logger.debug(f"lookup_value: path not found: {field_def}")
+        return lookup_value
+
+    # We have value (if the value exists), handle type conversion and formatting.
     
+    if lookup_value is None:
+        lookup_value = ""
+        
+    # Test for scaler values first...
     if isinstance(lookup_value, str) or isinstance(lookup_value, bool) or isinstance(lookup_value, int):
         if isinstance(lookup_value, bool) or isinstance(lookup_value, int):
             lookup_value = str(lookup_value)
             
-        if "format" in field:
-            format_spec = field["format"]
-            format = format_spec[-1]
-            width = int(format_spec[0:-1])
-            
-            if len(lookup_value) > 0 and lookup_value != "" and format == "e":
-                lookup_value = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(lookup_value[0:10])))
+        # Handle epoch/unix date formatting.
+        if len(lookup_value) > 0 and lookup_value != "" and format.is_epoch():
+            lookup_value = time.strftime('%Y-%m-%d', time.gmtime(int(lookup_value[0:10])))
 
-            if len(lookup_value) > 0 and lookup_value != "" and format == "g":
-                lookup_value = str(int(lookup_value) / constants.CONST_GIGABYTE) + " GB"
-
-            lookup_value = (lookup_value + " " * width)[:width]
+        # Quick and dirty formatting for GB field values.
+        if len(lookup_value) > 0 and lookup_value != "" and format.is_gigabyte():
+            lookup_value = "{:.2f} GB".format(int(lookup_value) / constants.CONST_GIGABYTE)
     elif isinstance(lookup_value, list):
-        if "aggregate" not in field:
-            logger.warning("aggregate value missing")
+        # The user passed a list specification, we need to aggregate the values
+        # into a single string.
+        if "aggregate" not in field_def:
+            logger.warning("aggregate specification missing")
         else:
             aggr_value = ""
             comma = ""
             
             for item in lookup_value:
-                aggr_value += comma + json_path(item, field["aggregate"])
+                aggr_value += comma + jt.json_path(item, field_def["aggregate"])
                 comma = ", "
             
             lookup_value = aggr_value
+
+    # Force the value to fit in the columns by wrapping the value into multiple line
+    # in the width provided.
+    
+    return_list = []
+    
+    if format.get_width() is None:
+        return_list.append(lookup_value)  # return the value as provided, but in a list
+    else:
+        width = format.get_width()
+        
+        if len(lookup_value) <= format.get_width():
+            return_list.append((lookup_value + (" " * width))[:width])
+        else:
+            # Cut the list into chunks - one line per chunk of width
+            line_count = math.ceil(len(lookup_value) / width)
             
-    return lookup_value
+            for i in range(line_count):
+                start_pos = i * width
+                
+                line_value = lookup_value[start_pos:start_pos + width]
+                line_value = (line_value + (" ") * width)[:width]
+                
+                return_list.append(line_value)
+
+    return return_list
 
 def recurse_format(data, template, output_handle):
+    if data is None or not isinstance(data, list):
+        logger.warning("recurse_format: invalid data - is None or not a list.")
+        return
+    
     for item in data:
+        # For each item, there will be one or more "rows" attribute
+        # containing data and formatting instructions.
         for row in template["rows"]:
-            if row["type"] == "row":
-                fields = re.findall("\\{(.*?)\\}", row["layout"]);
-                values = {}
+            # Locate all the field place holders in the current row
+            fields = re.findall("\\{(.*?)\\}", row["layout"]);
             
-                for field in fields:
-                    values[field] = lookup_value(item, template["fields"][field])
-                
-                output_row = row["layout"].format(**values)
-                output_handle.write(output_row)
-            elif row["type"] == "list":
-                row_data = lookup_value(item, row["path"])
+            # Start the list of values we will put into the place holders.
+            values = {}
+            formats = {}
+            
+            # Go get the data for this row/field.
+            for field in fields:
+                values[field] = lookup_value(item, template["fields"][field])
+                formats[field] = FieldFormat(template["fields"][field]["format"])
+            
+            # Apply the data to the formatting string.  First, ask all the values
+            # how many lines they contain (wrapped values).  The output for this
+            # total lines of output for this row is driven by how many lines exist
+            # across all the values.
+            
+            max_lines = 0
+            for value in values:
+                max_lines = max(len(values[value]), max_lines)
+            
+            # For each line, built the content based on the field values.
 
-                # list_fields = re.findall("\\{(.*?)\\}", row["layout"]);
-                # list_values = {}
+            for current_line in range(max_lines):
+                output_row = row["layout"] # Start with a fresh layout
                 
-                # for list_field in list_fields:
-                #     list_values[list_field] = lookup_value(row_data, template["fields"][list_field])
+                for field in fields:  # Place the field values into the format
+                    value_lines = values[field]
+                    format = formats[field]
+                    
+                    if len(value_lines) > current_line:
+                        # Add the current lines value to the output
+                        output_row = output_row.replace("{" + field + "}", value_lines[current_line])
+                    else:
+                        # Fill line for this value with spaces
+                        output_row = output_row.replace("{" + field + "}", " " * format.get_width())
                 
-                # output_row = row["layout"].format(**values)
-                # args.output_handle.write(output_row)
-# if isinstance(item, str) or isinstance(item, int):
-#     str_indent = '.' * (indent + 2)
-#     args.output_handle.write("{}{}\n".format(str_indent, item))
-
-#     continue
-
+                # This line is complete, push it out
+                output_handle.write(output_row.rstrip() + "\n")
+            
 def write_list(list_data, args):
     logger.setLevel(session_config.log_level)
 
@@ -150,17 +185,24 @@ def write_list(list_data, args):
         return
 
     if isinstance(list_data, dict):
+        # Convert to a list.
         list_data = [ list_data ] # We love lists
 
     if args.command not in constants.templates:
         logger.error(f"write_list_text: {args.command} template not found.")
         return
-    
+
+    # Get the template based on the name of the command we are
+    # running.    
     template = constants.templates[args.command]
 
     # Loop over each item and build output lines based on the template.
-
     recurse_format(list_data, template, output_handle)
-    
+
+    # If we are writing to an output file, close the file.    
     if args.output is not None:
         output_handle.close()
+
+if __name__ == '__main__':
+    format = FieldFormat("20s")
+    print(1)

@@ -55,21 +55,23 @@ def config_parser():
 
     # Spaces LIST options
     space_list_parser = space_subparsers.add_parser('list', help='spaces list command')
-    space_list_parser.add_argument("spaceName", help="space name(s) to list", nargs=argparse.REMAINDER)
-    space_list_parser.add_argument("-f", "--format", help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
-    space_list_parser.add_argument("-p", "--prefix", help="prefix for output", default="DWC_SPACES")
+    space_list_parser.add_argument("spaceName",        help="space name(s) to list", nargs=argparse.REMAINDER)
+    space_list_parser.add_argument("-f", "--format",   help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
+    space_list_parser.add_argument("-p", "--prefix",   help="prefix for output", default="DWC_SPACES")
     space_list_parser.add_argument("-w", "--wildcard", help="seach expansion of space names", action="store_true")
-    space_list_parser.add_argument("-o", "--output", help="filename for output")
+    space_list_parser.add_argument("-d", "--deep",     help="deep search for database user schema objects", default=False, action="store_true")
+    space_list_parser.add_argument("-a", "--add",      help="add user and redeploy the space to query builder objects", default=False, action="store_true")
+    space_list_parser.add_argument("-o", "--output",   help="filename for output")
 
     # Spaces CREATE options
     space_create_parser = space_subparsers.add_parser('create', help='Space create command')
-    space_create_parser.add_argument("--label", help="optional label to assign - defaults to spaceId")
+    space_create_parser.add_argument("--label",          help="optional label to assign - defaults to spaceId")
     space_create_parser.add_argument("-t", "--template", help="Space name to use as a template")
-    space_create_parser.add_argument("-d", "--disk", help="Disk allocated to space")
-    space_create_parser.add_argument("-m", "--memory", help="Memory allocated to space")
-    space_create_parser.add_argument("-f", "--force", help="force the re-creation if space exists", action="store_true")
-    space_create_parser.add_argument("spaceName", help="space name to create")
-    space_create_parser.add_argument("users", help="users to add to the space", nargs=argparse.REMAINDER)
+    space_create_parser.add_argument("-d", "--disk",     help="Disk allocated to space")
+    space_create_parser.add_argument("-m", "--memory",   help="Memory allocated to space")
+    space_create_parser.add_argument("-f", "--force",    help="force the re-creation if space exists", default=False, action="store_true")
+    space_create_parser.add_argument("spaceName",        help="space name to create")
+    space_create_parser.add_argument("users",            help="users to add to the space", nargs=argparse.REMAINDER)
 
     # Spaces DELETE options
     space_delete_parser = space_subparsers.add_parser('delete', help='Delete one or more spaces.')
@@ -80,50 +82,50 @@ def config_parser():
     space_bulk_subparsers = space_bulk_parser.add_subparsers(help="space bulk command", dest="bulk_subcommand")
 
     space_bulk_create_parser = space_bulk_subparsers.add_parser('create', help='Space bulk create command')
-    space_bulk_create_parser.add_argument("-s", "--skip", help="header lines to skip in the CSV file", default="1")
-    space_bulk_create_parser.add_argument("-f", "--force", help="force the re-creation if space exists", action="store_true")
+    space_bulk_create_parser.add_argument("-s", "--skip",     help="header lines to skip in the CSV file (default=1)", default="1")
+    space_bulk_create_parser.add_argument("-f", "--force",    help="force the re-creation if space exists", action="store_true")
     space_bulk_create_parser.add_argument("-t", "--template", help="Space name to use as a template")
-    space_bulk_create_parser.add_argument("filename", help="CSV file containing spaces to create")
+    space_bulk_create_parser.add_argument("filename",         help="CSV file containing spaces to create")
 
     space_bulk_delete_parser = space_bulk_subparsers.add_parser('delete', help='Space bulk delete command')
     space_bulk_delete_parser.add_argument("-s", "--skip", help="header lines to skip in the CSV file", default="1")
-    space_bulk_delete_parser.add_argument("filename", help="CSV file containing space names to delete")
+    space_bulk_delete_parser.add_argument("filename",     help="CSV file containing space names to delete")
 
     # Space MEMBER options
-    space_member_parser = space_subparsers.add_parser('member', help='Bulk operation on one or more spaces.')
+    space_member_parser = space_subparsers.add_parser('member', help='List or revise the members of one, or more spaces.')
     space_member_subparsers = space_member_parser.add_subparsers(help="space member command", dest="member_subcommand")
 
     space_member_list_parser = space_member_subparsers.add_parser('list', help='Space member list command')
-    space_member_list_parser.add_argument("-n", "--no-wildcard", help="Use wildcard lookup for space name and users", action="store_true")
-    space_member_list_parser.add_argument("-f", "--format",      help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
-    space_member_list_parser.add_argument("-p", "--prefix",      help="output style", default="DWC_MEMBERS")
-    space_member_list_parser.add_argument("-o", "--output",      help="filename for output")
-    space_member_list_parser.add_argument("spaceName",           help="Search pattern for spaces to add user")
+    space_member_list_parser.add_argument("-w", "--wildcard", help="use wildcard lookup for space name and users", default=False, action="store_true")
+    space_member_list_parser.add_argument("-f", "--format",   help="output style", default="text", choices=['hana', 'csv', 'json', 'text'])
+    space_member_list_parser.add_argument("-p", "--prefix",   help="output style", default="DWC_MEMBERS")
+    space_member_list_parser.add_argument("-o", "--output",   help="filename for output")
+    space_member_list_parser.add_argument("spaceName",        help="search pattern for spaces", nargs=argparse.REMAINDER)
 
     space_member_add_parser = space_member_subparsers.add_parser('add', help='Space member add command')
-    space_member_add_parser.add_argument("-w", "--wildcard", default="false", help="Use wildcard lookup for space name and users", choices=["true", "false"])
-    space_member_add_parser.add_argument("user", help="A user name or email to add to one or more spaces")
-    space_member_add_parser.add_argument("spaceName", help="Search pattern for spaces to add user", nargs=argparse.REMAINDER)
+    space_member_add_parser.add_argument("-w", "--wildcard", help="use wildcard lookup for users", default=False, action="store_true")
+    space_member_add_parser.add_argument("spaceName",        help="specific name to add user")
+    space_member_add_parser.add_argument("user",             help="one or more user names to add to the space", nargs=argparse.REMAINDER)
 
     space_member_remove_parser = space_member_subparsers.add_parser('remove', help='Space member remove command')
-    space_member_remove_parser.add_argument("-w", "--wildcard", default="true", help="Use wildcard lookup for space name and users", choices=["true", "false"])
-    space_member_remove_parser.add_argument("spaceName", help="Search pattern for spaces to remove user")
-    space_member_remove_parser.add_argument("users", help="User list (patterns) to remove", nargs=argparse.REMAINDER)
+    space_member_remove_parser.add_argument("-w", "--wildcard", help="Use wildcard lookup for space name and users", default=False, action="store_true")
+    space_member_remove_parser.add_argument("spaceName",        help="Search pattern for spaces to remove user")
+    space_member_remove_parser.add_argument("user",             help="User list (patterns) to remove", nargs=argparse.REMAINDER)
 
     # Start the CONNECTIONS command
     conn_parser = global_subparsers.add_parser('connections', help='Create, delete and list connections in space(s)')
     conn_subparsers = conn_parser.add_subparsers(help="connections command", dest="subcommand")
 
     conn_create_parser = conn_subparsers.add_parser('create', help='Connection create command')
-    conn_create_parser.add_argument("-w", "--wildcard", help="Use wildcard lookup for space name (default=false)", action="store_true")
-    conn_create_parser.add_argument("-f", "--force", help="force the re-creation if connection exists", action="store_true")
-    conn_create_parser.add_argument("targetSpace", help="spaces to receive the connection", nargs='+')
-    conn_create_parser.add_argument("filename", help="connection definition JSON file")
+    conn_create_parser.add_argument("-w", "--wildcard", help="use wildcard lookup for space name (default=false)", default=False, action="store_true")
+    conn_create_parser.add_argument("-f", "--force",    help="force the re-creation if connection exists", action="store_true")
+    conn_create_parser.add_argument("targetSpace",      help="spaces to receive the connection", nargs='+')  # Many spaces can be listed
+    conn_create_parser.add_argument("filename",         help="connection definition JSON file")  # File name is always the last argument
 
     conn_delete_parser = conn_subparsers.add_parser('delete', help='Connection delete command')
     conn_delete_parser.add_argument("-w", "--wildcard", help="Use wildcard lookup for space name (default=false)", action="store_true")
-    conn_delete_parser.add_argument("targetSpace", help="spaces to receive the connection", nargs='+')
-    conn_delete_parser.add_argument("connectionName", help="connection name to delete")
+    conn_delete_parser.add_argument("targetSpace",      help="spaces to receive the connection", nargs='+') # Many spaces can be listed
+    conn_delete_parser.add_argument("connectionName",   help="connection name to delete")  # Connection name is always last
 
     conn_list_parser = conn_subparsers.add_parser('list', help='Connection list command')
     conn_list_parser.add_argument("-w", "--wildcard",     help="Use wildcard lookup for space name (default=false)", action="store_true")
@@ -148,9 +150,9 @@ def config_parser():
 
     share_create_parser = share_subparsers.add_parser('create', help='shares create command help')
     share_create_parser.add_argument("-w", "--wildcard", help="Use wildcard lookup for space name (default=false)", action="store_true")
-    share_create_parser.add_argument("sourceSpace", help="source space with object to share")
-    share_create_parser.add_argument("sourceObject", help="source object technical name to share")
-    share_create_parser.add_argument("targetSpace", help="target space(s) getting the share")
+    share_create_parser.add_argument("sourceSpace",      help="source space with object to share")
+    share_create_parser.add_argument("sourceObject",     help="source object technical name to share")
+    share_create_parser.add_argument("targetSpace",      help="target space(s) getting the share")
 
     # share_list_parser = share_subparsers.add_parser('list', help='shares list command help')
     # share_unshare_parser = share_subparsers.add_parser('unshare', help='shares unshare command help')

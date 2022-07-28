@@ -88,33 +88,43 @@ templates = {
       "role_name"         : { "path" : "$.roleName",               "format" : "30s", "heading" : "Role" }
     },
     "rows" : [
-      { "type" : "row", "layout" : "{user_name} {user_email} {user_lastLogin} {user_days_visited}\n" }
+      { "type" : "row", "layout" : "{user_name} {user_email} {user_lastLogin} {user_days_visited}" }
     ]
   },
   "spaces" : {
     "fields" : {
       "space_name"            : { "path" : "$.name",                      "format" : "30s" },
-      "space_memory_assigned" : { "path" : "$.resources.memory.assigned", "format" : "6g"  },
-      "space_memory_used"     : { "path" : "$.resources.memory.used",     "format" : "6g"  },
+      "space_memory_assigned" : { "path" : "$.resources.memory.assigned", "format" : "10g"  },
+      "space_memory_used"     : { "path" : "$.resources.memory.used",     "format" : "10g"  },
       "enabledDataLake"       : { "path" : "$.enableDataLake",            "format" : "10s" },
       "space_members"         : { "path" : "$.members[*]",                "format" : "30s", "aggregate" : "$.name" },
       "space_dbusers"         : { "path" : "$.dbusers.*",                 "format" : "30s", "aggregate" : "$.key" },
       "member_name"           : { "path" : "$.name",                      "format" : "30s" }
     },
     "rows" : [
-      { "type" : "row", "layout" : "{space_name} {space_memory_assigned} {space_memory_used} {enabledDataLake} {space_dbusers}\n" },
+      { "type" : "row", "layout" : "{space_name} {space_memory_assigned} {space_memory_used} {enabledDataLake} {space_dbusers}" },
       { "type" : "row", "path" : "$.members", "layout" : "  Member(s): {space_members}" }
     ]
     },
     "shares" : {
-    "fields" : {
-      "space_name"   : { "path" : "$.spaceName",   "format" : "30s" },
-      "object_name"  : { "path" : "$.objectName",  "format" : "30s" },
-      "target_space" : { "path" : "$.targetSpace", "format" : "30s" }
+      "fields" : {
+        "space_name"   : { "path" : "$.spaceName",   "format" : "30s" },
+        "object_name"  : { "path" : "$.objectName",  "format" : "30s" },
+        "target_space" : { "path" : "$.targetSpace", "format" : "30s" }
+      },
+      "rows" : [
+        { "type" : "row", "layout" : "{space_name} {object_name} {target_space}" },
+      ]
     },
-    "rows" : [
-      { "type" : "row", "layout" : "{space_name} {object_name} {target_space}\n" },
-    ]
+    "members" : {
+      "fields" : {
+        "space_name" : { "path" : "$.space_name", "format" : "30s" },
+        "user_name"  : { "path" : "$.name",       "format" : "30s" },
+        "user_type"  : { "path" : "$.type",       "format" : "30s" }
+      },
+      "rows" : [
+        { "type" : "row", "layout" : "{space_name} {user_name} {user_type}" },
+      ]
     }
 
   }

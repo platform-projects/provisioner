@@ -1,7 +1,7 @@
 import logging
 import time, datetime as dt
 
-from hdbcli import dbapi
+#from hdbcli import dbapi
 
 import session_config as config
 

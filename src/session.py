@@ -25,7 +25,7 @@ class DWCSession:
                       "connections"       : "#dwc_url/dwaas-core/repository/remotes?space_ids={space_id}&inSpaceManagement=true&details=",
                       "connection"        : '#dwc_url/dwaas-core/repository/remotes/?space_ids={}&inSpaceManagement=true',
                       "connection_delete" : "#dwc_url/dwaas-core/repository/remotes/{}?space_ids={}",
-                      "remotetables"      : "#dwc_url/dwaas-core/monitor/{space_name}/remoteTables",
+                      "remotetables"      : "#dwc_url/dwaas-core/monitor/{space_name}/remoteTables?includeBusinessNames=true",
                       "businessbuilder"   : "#dwc_url/dwaas-core/c4s/internal_services/loadContent",
                       "users"             : "#dwc_url/sap/fpa/services/rest/epm/security/list/users?detail=true&parameter=key_value&includePending=true&forceLicensingCheck=true&tenant={tenant_id}"
                     }
@@ -45,7 +45,7 @@ class DWCSession:
         self.spaces_cache = None
         self.users_cache = None
 
-        # Instantiate a requests session - no network traffic happens here.
+        # Instantiate a "requests" session - no network traffic happens here.
         # The Session object handles the HTTP(s) and cookie processing.
 
         self.session = requests.Session()
@@ -239,7 +239,7 @@ class DWCSession:
         # replicating that request.  This request also returns the
         # "id" value of the tenant used in other operations.
 
-        if self.dwc_user_info is None:
+        if self.dwc_user_info is None:  # You can't login more than once, cache the info.
             self.dwc_user_info = self.get_json('logon')
 
     def get_user_info(self):
@@ -247,6 +247,18 @@ class DWCSession:
         
         return self.dwc_user_info["user"]
 
+    def get_user_name(self, user=None):
+        lookup_user = user
+        
+        # If not otherwise reqe
+        if user is None:
+            lookup_user = self.get_user_info()
+            
+        if "userName" in lookup_user:
+            return lookup_user["userName"]
+        
+        return None
+    
     def get_spaces(self, force=False):
         # Assume this operation does not need to be repeated - cache
         # the first response unless asked to force a reload.
@@ -271,6 +283,10 @@ class DWCSession:
         return self.spaces_cache
 
     def get_space_id(self, space_name):
+        if space_name is None or not isinstance(space_name, str) or len(space_name) == 0:
+            logger.error("get_space_id: invalid space_name or ID.")
+            return None
+        
         # Search the available spaces by name and, if found return
         # the internal ID of the space.
 
@@ -282,12 +298,12 @@ class DWCSession:
 
         return None
         
-    def get_space_list(self, search_list, wildcard=True):
+    def get_space_list(self, search_list, wildcard=True, force=False):
         # Locate the spaces identifed in the search list by space name. If wildcard
         # is true, use a "contains" test to match space names.
 
         # Get all the known spaces in the tenant.
-        spaces = self.get_spaces()
+        spaces = self.get_spaces(force=force)
 
         # If no list is provided, return all spaces.
         if search_list is None:
@@ -312,7 +328,7 @@ class DWCSession:
 
             for space in spaces:
                 if wildcard:
-                    if space["name"].find(search_space_name) != -1:
+                    if space["name"].upper().find(search_space_name) != -1:
                         return_list.append(space)
                         matched = True
                 else:
@@ -329,12 +345,20 @@ class DWCSession:
     def fix_space_name(self, space_name):
         return space_name.upper()
 
-    def get_space(self, space_name):
+    def is_space(self, space_name, wildcard=False):
+        space_list = self.get_space_list(space_name, wildcard)
+        
+        if len(space_list) == 0:
+            return False
+        else:
+            return True
+        
+    def get_space(self, space_name, wildcard=False):
         fixed_space_name = self.fix_space_name(space_name)
 
         # Lookup the SPACE name to ensure it exists before looking up the details.
         
-        space_list = self.get_space_list(space_name, wildcard=False)
+        space_list = self.get_space_list(space_name, wildcard)
         
         if len(space_list) == 1:
             space = self.get_json("space", { "space_name" : fixed_space_name })
@@ -431,7 +455,7 @@ class DWCSession:
         # empty, do nothing.
 
         if space is None:
-            return None
+            return []
 
         if isinstance(space, str):
             # If we received a string, assume it's a name and look up the ID.  If the
@@ -473,7 +497,7 @@ class DWCSession:
 
             return results
 
-        return None
+        return []
 
     def add_connection(self, space_name, conn_file, force=False):
         space_id = self.get_space_id(space_name)
@@ -542,6 +566,14 @@ class DWCSession:
 
         return self.delete(space_url)
 
+    def is_dwc_user(self, user):
+        user = self.get_users(user, wildcard=False)
+        
+        if len(user) == 1:
+            return True
+        
+        return False
+    
     def get_users(self, users_search=None, force=False, wildcard=True):
         '''
         Get the list of user from the tenant as a deep copy.  For repeat calls,
@@ -562,11 +594,28 @@ class DWCSession:
         if users_search is None:
             return copy.deepcopy(self.users_cache)  # Return a mutable list
 
+        # We could get a few different requests:
+        # 1. A single string of a username
+        # 2. A full user object from previous query
+        # 3. A space user object with only "name" and "type" attributes
+        # 4. A list of any of the above.
+        
+        # If we find that we have a dictionary object that looks like a
+        # DWC user, simply return the user back as a user.
+        
+        if isinstance(users_search, dict) and "userName" in users_search:
+            return [ users_search ]  # we don't need to search anything
+        
         # We want to search a list of users, convert a simple string into a list
 
         if isinstance(users_search, str):
+            # add the string to the search list - note: we need to get the full user object
             users_search = [ users_search ]
 
+        # If we got a space user object, add the name - note: we need to get the full user object
+        if isinstance(users_search, dict) and "name" in users_search and "type" in users_search:
+            users_search = [ users_search["name"] ]
+            
         # Make sure we have a list with at least one member.
 
         if not isinstance(users_search, list):
@@ -581,6 +630,12 @@ class DWCSession:
         return_users = []
 
         for pattern in users_search:
+            # If we are boiling down a list of users, pull the
+            # username out of the pattern object.
+            
+            if isinstance(pattern, dict):
+                pattern = pattern["userName"]
+                
             for user in self.users_cache:
                 if wildcard:
                     if str(user).upper().find(pattern.upper()) != -1:
@@ -618,26 +673,35 @@ class DWCSession:
         return space_name
 
     def get_dbuser_objects(self, space_name, dbuser_hashtags):
+        # This routine never produces an error - invalid, or no hashtag keys returns an empty list.
+        if dbuser_hashtags is None or len(dbuser_hashtags) == 0:
+            return []
 
+        # If we only have one hashtag user, turn it into a list.        
+        if isinstance(dbuser_hashtags, str):
+            dbuser_hashtags = [ dbuser_hashtags ]
+
+        # Convert a dictionary            
         space_name = self.get_space_name(space_name)
 
         if space_name is None:
-            return None
+            return []
 
-        if isinstance(dbuser_hashtags, str):
-            dbuser_hashtags = [ dbuser_hashtags ]
-            
+        # Build the query string to send to DWC - we can lookup as many
+        # hashtags as we want in a single query.  This loop looks at
+        # just the keys (#tag users) from the dictionary.
         search_path = []
         for dbuser_hashtag in dbuser_hashtags:
             search_path.append({ "id" : dbuser_hashtag, "type" : "schema"})
-                               
+
+        # Encode the search string for the URL.                               
         dbuser_path = urllib.parse.quote(str(search_path).replace("'", '"'))
         
+        # build the final URL to send to DWC
         dbuser_query = f'#dwc_url/dwaas-core/datasources/getchildren?path={dbuser_path}&space={space_name}'
 
-        # To simplify the code, simply punch this URL into the standard list.
-        if "dbuser_objects" not in self.urls:
-            self.urls["dbuser_objects"] = dbuser_query
+        # To simplify the get operation, simply punch this URL into the standard list.
+        self.urls["dbuser_objects"] = dbuser_query
 
         objects = self.get_json("dbuser_objects")
         
@@ -679,12 +743,6 @@ class DWCSession:
         # Build the full search object
         objects_query = f"Search.search({objects_query})"
 
-        # query_columns = [   "id","name","business_name","kind","creation_date","modification_date","owner","creator",
-        #                     "changed_by_user_name","creator_user_name","business_type","technical_type","is_shared",
-        #                     "type","type_label","deployment_date","object_status","object_status_icon","object_status_description",
-        #                     "technical_type_description","technical_type_icon","business_type_description","business_type_icon"
-        #                 ]
-
         CONST_DOLLAR = '%24'
 
         db_objects_query = CONST_DOLLAR + 'top=99999'
@@ -694,8 +752,6 @@ class DWCSession:
         db_objects_query += CONST_DOLLAR + f"apply=filter({objects_query})"
         db_objects_query += '&'
         db_objects_query += CONST_DOLLAR + 'count=true'
-        #db_objects_query += '&'
-        #db_objects_query += CONST_DOLLAR + 'select=' + "%2C".join(query_columns)
 
         db_objects_query =  self.get_dwc_url() + "/dwaas-core/repository/search/$all?" + db_objects_query
 
@@ -747,7 +803,7 @@ class DWCSession:
         return results
 
     def get_remote_tables(self, space_name):
-        results = self.get_json("remotetables", { "space_name" : space_name });
+        results = self.get_json("remotetables", { "space_name" : space_name })
 
         if results is not None and "tables" in results:
             remote_tables = results["tables"]
@@ -756,18 +812,143 @@ class DWCSession:
 
         return remote_tables
 
-    def space_add_member(self, space_name, user):
-        t0 = time.perf_counter()
-        
-        space = self.get_space(space_name)
+    def is_member(self, space_object, user=None):
+        # Validate the user first to make sure we are looking for a real user.
+        if not self.is_dwc_user(user):
+            logger.debug("is_member: a user was not specified.")
+            return False
 
-        x = 1
-        
-    def space_remove_member(self, space_name, user):
-        t0 = time.perf_counter()
-        
-        space = self.get_space(space_name)
+        # Now validate the space where we want to add the user.
+        if space_object is None:
+            logger.debug("is_member: a space_name was not specified.")
+            return False
 
+        # Assume we got a dictionary
+        space = space_object   
+        space_name = None
+        
+        # We could receive a space name or an actual space definition.  If we
+        # get a dictionary, assume the first key is the name of the space.
+        
+        if isinstance(space_object, dict):
+            space_name = next(iter(space_object))
+        elif isinstance(space_object, str) and len(space_object) == 0:
+            space_name = space_object
+            space = self.get_space(space_name)
+        
+        # Test the object to ensure it is a DWC space definition.
+        if space_name is None or space_name not in space or "spaceDefinition" not in space[space_name]:
+            logger.warn("is_member: invalid space dictionary.")
+            return False
+        
+        # There may be no members, otherwise search for our user name.
+        if "members" in space[space_name]["spaceDefinition"]:
+            for member in space[space_name]["spaceDefinition"]["members"]:
+                if member["name"] == self.get_user_name(user):  # Are we a member of the space?
+                    return True
+
+        return False
+        
+    def add_members(self, space, users):
+        t0 = time.perf_counter()
+
+        # If we got a name, find the space object
+        if isinstance(space, str):
+            space = self.get_space(space)
+            
+        # The space must be an actual space object with the expected structure
+        if space is None or not isinstance(space, dict):
+            logger.error("add_member: invalid space object")
+            return
+        
+        # The first key must be the name of the space.
+        space_name = self.get_space_name(space)
+
+        # Check the space object properties.        
+        if space_name is None or "spaceDefinition" not in space[space_name]:
+            logger.error("add_member: invalid space object")        
+            return
+        
+        # Now figure out who's being added - could be many users
+        user_list = self.get_users(users)
+        
+        if len(user_list) == 0:
+            logger.warning("add_members: invalid list of users")
+            return
+        
+        added_user = False
+        
+        for user in user_list:
+            # If the user is already a member, no action necessary.
+            if not self.is_member(space, user):
+                space[space_name]["spaceDefinition"]["members"].append({ 'name' : user["userName"], 'type' : 'user' })
+                added_user = True
+        
+        if added_user:
+            self.put_space(space)
+        
+    def remove_members(self, space, users):
+        t0 = time.perf_counter()
+
+        # If we got a name, find the space object
+        if isinstance(space, str):
+            space = self.get_space(space)
+            
+        # The space must be an actual space object with the expected structure
+        if space is None or not isinstance(space, dict):
+            logger.error("remove_member: invalid space object")
+            return
+        
+        # The first key must be the name of the space.
+        space_name = self.get_space_name(space)
+
+        # Check the space object properties.        
+        if space_name is None or "spaceDefinition" not in space[space_name]:
+            logger.error("remove_member: invalid space object")        
+            return
+        
+        # Now figure out who's being added - could be many users
+        user_list = self.get_users(users)
+        
+        if len(user_list) == 0:
+            logger.warning("remove_members: invalid list of users")
+            return
+        
+        removed_user = False
+        remaining_member_list = []
+        
+        # Loop over the space members and exclude any that match
+        # our list of users to remove.
+        for space_user in space[space_name]["spaceDefinition"]["members"]:
+            skip_user = False
+            
+            for user in user_list:
+                if space_user["name"] == user["userName"]:
+                    skip_user = True
+                    break  # Stop checking this user
+                
+            if skip_user:
+                removed_user = True
+            else:
+                remaining_member_list.append({ 'name' : space_user["name"], 'type' : space_user["type"] })
+        
+        if removed_user:
+            space[space_name]["spaceDefinition"]["members"] = remaining_member_list
+            self.put_space(space)
+
+    def put_space(self, space):
+        # We are expecting a space object, do a quick sanity check.
+        space_name = self.get_space_name(space)
+        
+        if space_name is None or "spaceDefinition" not in space[space_name]:
+            logger.error("put_space: invalid space passed")
+            return
+        
+        url = self.get_url("space")
+        url = url.format(**{ "space_name" : space_name })
+
+        self.put(url, json.dumps(space, separators=(',', ':')))
+        
     def spaces_delete_cli(self, space_id):
         utility.start_timer("spaces_delete_cli")
 
@@ -913,8 +1094,6 @@ class DWCSession:
         return response
 
     def delete(self, url):
-        logger.debug("ENTERING: delete()")
-
         t0 = time.perf_counter()
 
         response = self.session.delete(url, verify=False)
@@ -924,14 +1103,17 @@ class DWCSession:
         if response.status_code >= 400:
             logger.warning("delete to {} - error {}.".format(url, response.status_code))
 
+        self.elapsed = time.perf_counter() - t0
+
         return response
 
     def put(self, url, data):
-        logger.debug("ENTERING: put()")
-
         t0 = time.perf_counter()
 
-        response = self.session.put(url, data, verify=False)
+        put_headers = copy.deepcopy(self.session.headers)
+        put_headers["Content-Type"] = "application/json"
+        
+        response = self.session.put(url, data, verify=False, headers=put_headers)
 
         self.elapsed = time.perf_counter() - t0
 

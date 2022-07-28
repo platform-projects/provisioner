@@ -108,10 +108,10 @@ def spaces_create(space_args):
     if len(users) == 0:    
         logger.warning("spaces_create: create space {} found no matching DWC users.".format(space_name))
         
+    # Populate the user list for the new space (if any users were specified).
     for user in users:
         new_space_def[space_name]["spaceDefinition"]["members"].append(
-                    { "name" : user["userName"], "type" : "user" }
-                )
+                    { "name" : user["userName"], "type" : "user" } )
 
     # If we need to force the creation of the space, delete the existing space first.
 
@@ -122,7 +122,7 @@ def spaces_create(space_args):
 
     # The space is ready to be created, call the CLI to do the operation.
 
-    session_config.dwc.spaces_create_cli('create', new_space_def)
+    session_config.dwc.put_space(new_space_def)
 
     logger.info(utility.log_timer("spaces_create", f"spaces_create: {space_name} creation complete."))
 
@@ -135,7 +135,11 @@ def spaces_delete(space_args):
         logger.warning("spaces_delete: no spaces found to delete")
     else:
         for space_name in space_list:
-            session_config.dwc.spaces_delete_cli(space_name)
+            url = session_config.dwc.get_url("space")
+            url = url.format(**{ "spaceName" : space_name })
+            url += "&connections=true&definitions=true"
+            
+            session_config.dwc.delete(url)
 
     logger.debug(utility.log_timer("spaces_delete"))
 
@@ -257,119 +261,74 @@ def spaces_list(space_args):
 
     space_list = []
     
-    # Keep track of whether the current (logged in) DWC user is a member of a space.  To
-    # capture ALL the details we need to be a space member.  Setting this flag, per space, let's
-    # us know when we need to call the DWC CLI to punch our admin user into the space.
-
-    spaces_needing_member = {}
-    
     for current_space in spaces:
         space_name = current_space["name"]  # This is the technical name for the space.
 
-        logger.debug(f"spaces_create: starting space list for {space_name}")
+        logger.debug(f"spaces_list: starting space list for {space_name}")
         
-        # Get the space details (including members/dbusers/connections/etc) from DWC
+        # Get the space details (including members/dbusers/connections/etc) from DWC.
+        # This returns a dict object with the space as the first key.
         space = session_config.dwc.get_space(space_name)
 
         # Pull out the space details from the query results.
         space_def = space[space_name]["spaceDefinition"]
 
-        # Compose the space row to be written to the output.  This is a
-        # combination of all the short space query attributes 
-        # and the detailed query attributes.
-        
+        # Compose the space row to be written to the output.  This is a combination
+        # of all the short space query attributes and the detailed query attributes.
         new_space = copy.deepcopy(current_space)   # Start with a copy of the simple space defintion
         new_space.update(space_def)                # Add the detailed space attributes
 
-        space_list.append(new_space)       # Add this completed space to the list - we love lists
+        # Add this completed space to the list - we love lists
+        space_list.append(new_space)
         
-        # Assume the administrative user doing this operation is not a member of this space.  
-        spaces_needing_member[space_name] = True 
-        
-        for member in new_space["members"]:
-            # Are we a member of the space?
-            if member["name"] == session_config.dwc.get_user_info()["userName"]:
-                spaces_needing_member[space_name] = False
-                break
+        # Ask for any connections defined for this space.
+        new_space["connections"] = session_config.dwc.get_connections(space_name)
 
         # Create a list object for this space's dbusers containing the list
         # of schema objects available for building views.
 
-        for object in session_config.dwc.get_dbuser_objects(space_name, new_space["dbusers"]):
-            # Add in the hastag username of the user as a distinct field.
-            object["dbuser"] = object["id"][:object["id"].find(".")]  
-            
-            if "dbuser_objects" not in new_space:
-                new_space["dbuser_objects"] = []
+        if space_args.deep:
+            for object in session_config.dwc.get_dbuser_objects(space_name, new_space["dbusers"]):
+                # Add in the hastag username of the user as a distinct field.
+                object["dbuser"] = object["id"][:object["id"].find(".")]  
                 
-            new_space["dbuser_objects"].append(object)
+                if "dbuser_objects" not in new_space:
+                    new_space["dbuser_objects"] = []
+                    
+                new_space["dbuser_objects"].append(object)
  
-        # Ask for any connections defined for this space.
-        # NOTE: this query uses ID and not SPACE_NAME 
- 
-        # for connection in session_config.dwc.get_connections(space_id):
-        #     if "connections" not in new_space:
-        #         new_space["connections"] = []
-
-        #     # Add the primary key to spaces.
-        #     connection["spaceId"] = space_id  
-
-        #     new_space["connections"].append(connection)
-
         # Ask for additional categories of objects that may be associated with each space.
         # These data are only available for members of the space - we may need to add ourselves.
     
         # Check to see if the current user is a member of this space.  We can't collect
         # info on various object types if we are not a member.
+
+        is_member = session_config.dwc.is_member(space_name)
+        remove_member = False
         
-        # if spaces_needing_member[space_id]:
-        #     # Adjust the Space definition to include this user - we must have sufficient
-        #     # DWC privilege to do this operation.
-        
-        #     space_def[space_name]["spaceDefinition"]["members"].append({ 'name' : userInfo["user"]["userName"], 'type' : 'user' })
-        #     # Get ready for calling the API by writing the updated space definition 
-        #     # to a JSON file (as needed by the API)    
-
-        #     json_file = os.path.join("working", "{}-add-member.json".format(space_name))
-        #     utility.write_json(json_file, space_def)
-
-        # Pump out the data builder objects
-
-        db_objects = session_config.dwc.get_data_builder_objects(space_name)
-
-        if db_objects is not None and "value" in db_objects:
-            for db_object in db_objects["value"]:
-                if "data_builder" not in new_space:  # Lazy add to the object
-                    new_space["data_builder"] = []
+        if not is_member:
+            if space_args.add:  # Did the user ask to add themselves?
+                session_config.add_member(current_space)
+                remove_member = True
             
-                new_space["data_builder"].append(db_object)
+        # Pump out the data builder objects
+        new_space["data_builder"] = session_config.dwc.get_data_builder_objects(space_name)
 
         # Pump out the remote tables list
-        
-        for remote_table in session_config.dwc.get_remote_tables(space_name):
-            if "remote_tables" not in new_space:  # Lazy add to the object
-                new_space["remote_tables"] = []
-            
-            new_space["remote_tables"].append(remote_table)
+        new_space["remote_tables"] = session_config.dwc.get_remote_tables(space_name)
 
         # Pump out the business builder objects
-        
-        business_builder_objects = session_config.dwc.get_business_builder_objects(space_name)
+        new_space["business_builder"] = session_config.dwc.get_business_builder_objects(space_name)
 
-        for business_builder_object in business_builder_objects:
-            business_builder_object["space_name"] = space_name
-            
-            if "business_builder" not in new_space:
-                new_space["business_builder"] = []
-                
-            new_space["business_builder"].append(business_builder_object)
+        # Take ourselves out of the space.
+        if remove_member:
+            session_config.space_remove_member(current_space)
 
     if len(space_list) == 0:
         logger.warn("spaces_list: No spaces found.")
 
         return
 
-    utility.write_json("space_test", space_list)
     writer.write_list(space_list, args=space_args)
 
 def process_members(space_args):
@@ -379,9 +338,9 @@ def process_members(space_args):
         members_action(space_args)
 
 def members_list(space_args):
-    space_list = session_config.dwc.get_space_list(space_args.spaceName, wildcard=space_args.no_wildcard)
+    space_list = session_config.dwc.get_space_list(space_args.spaceName, wildcard=space_args.wildcard)
 
-    members_list = None
+    members_list = []
     convert_list = True
 
     for space in space_list:
@@ -390,33 +349,31 @@ def members_list(space_args):
         space = session_config.dwc.get_space(space_name)
         space_def = space[space_name]["spaceDefinition"]
 
-        if members_list is None:
-            members_list = space_def["members"]
-        else:
-            if convert_list:
-                convert_list = False
-                member_list = [ member_list ]
+        for member in space_def["members"]:
+            members_list.append({ "space_name" : space_name,
+                                  "name"       : member["name"], 
+                                  "type"       : member["type"]
+                                })
 
-            member_list.append(space[space_name]["members"])
-
+    # Set the name for the template used to generate the output
+    space_args.command = "members"
+    
     writer.write_list(members_list, args=space_args)
 
 def members_action(space_args):
-    space = session_config.dwc.get_space(space_args.spaceName)
-    users = session_config.dwc.get_user(space_args.user, wildcard=space_args.wildcard)
+    if not session_config.dwc.is_space(space_args.spaceName):
+        logger.warn("member_action: invalid space name specified")
+        return
 
-    if users is None or len(users) == 0:
+    users = session_config.dwc.get_users(space_args.user, wildcard=space_args.wildcard)
+
+    if len(users) == 0:
         logger.warn("members_action: no valid users specified")
         return
     
-    if space is None or len(space) == 0:
-        logger.warn("member_action: no valid space specified")
-        return
-
-    for user in users:
-        if space_args.member_subcommand == "add":
-            session_config.dwc.add_member(space_args.spaceName, user)
-        elif space_args.member_subcommand == "remove":
-            session_config.dwc.remove_member(space_args.spaceName, user)
-        else:
-            logger.error("members_action: invalid action.")
+    if space_args.member_subcommand == "add":
+        session_config.dwc.add_members(space_args.spaceName, users)
+    elif space_args.member_subcommand == "remove":
+        session_config.dwc.remove_members(space_args.spaceName, users)
+    else:
+        logger.error("members_action: invalid action.")
