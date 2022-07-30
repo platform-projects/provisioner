@@ -10,13 +10,16 @@ def process(user_args):
     # For now, we only implement the list command.
     if user_args.subcommand == "list":
         users_list(user_args)
+    # elif "create"
+    # elif "delete"
 
 def users_list(user_args):
     utility.start_timer("users_list")
 
+    # Target list of users that will be formatted and/or output.
     user_list = []  # We love lists.
     
-    for user in session_config.dwc.get_users(user_args.users, wildcard=user_args.wildcard):
+    for user in session_config.dwc.get_users(user_args.users, user_args.query):
         # Do some fixup to streamline the user information by pulling some
         # specific attributes up from subobjects.
 
@@ -36,8 +39,10 @@ def users_list(user_args):
             user["roles_list"] = []  
 
             for role in roles:
-                # Add referential integrity to the roles based on userName
-                user["roles_list"].append({ "userName" : user["userName"], "roleName" : role })
+                user["roles_list"].append({
+                    "userName" : user["userName"],
+                    "roleName" : role
+                })
 
         # Add to the list of user we will be writing.
         user_list.append(user)
@@ -46,5 +51,4 @@ def users_list(user_args):
 
     writer.write_list(user_list, args=user_args)
     
-    logger.debug(utility.log_timer("users_list", "Command: Users list"))
-    
+    logger.debug(utility.log_timer("users_list", "Command: users list"))

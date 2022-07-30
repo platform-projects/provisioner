@@ -63,38 +63,35 @@ Clone or download this repository to a directory. In all the examples in this RE
 
 The commands to download the project are similar for all major operating systems, i.e., Linux, Windows, and Mac OS X.
 
-### 4.1 - Ubuntu Linux
+### 4.1 - Download
+The **provisioner** is available on the SAP-samples Github repository: [DWC Provisioner](https://github.com/SAP-samples/dwc-provisioner).  The tool can be downloaded as a zip file from Github or the tool can be cloned directly from Github using one of the following commands.
+#### Ubuntu Linux
 From the home directory of the user _ubuntu_:
 ```bash
-ubuntu@ip-17-1-3-11:~$ mkdir tools
-ubuntu@ip-17-1-3-11:~$ cd tools>
-ubuntu@ip-17-1-3-11:~$ git clone https://github.com/platform-projects/provisioner
+ubuntu@myhostname:~$ mkdir tools
+ubuntu@myhostname:~$ cd tools
+ubuntu@myhostname:~/tools$ git clone https://github.com/SAP-samples/dwc-provisioner
 ```
 
-### 4.2 - Windows
+#### Windows
 Open a command window (cmd):
-```
+```bash
 c:\> mkdir c:\tools
 c:\> cd c:\tools
-c:\> git clone https://github.com/platform-projects/provisioner
+c:\> git clone https://github.com/SAP-samples/dwc-provisioner
+Cloning into 'dwc-provisioner'...
 ```
-### 4.3 - MacOS
+#### MacOS
 From a terminal session:
 ```bash
-I852681@YYQP76KF4P ~ % mkdir tools
-I852681@YYQP76KF4P ~ % cd tools
-I852681@YYQP76KF4P tools % git clone https://github.com/platform-projects/provisioner
-Cloning into 'provisioner'...
-remote: Enumerating objects: 103, done.
-remote: Counting objects: 100% (103/103), done.
-remote: Compressing objects: 100% (67/67), done.
-remote: Total 103 (delta 54), reused 80 (delta 31), pack-reused 0
-Receiving objects: 100% (103/103), 191.43 KiB | 1.45 MiB/s, done.
-Resolving deltas: 100% (54/54), done.
-I852681@YYQP76KF4P tools % 
+myuser@mymachine ~ % mkdir tools
+myuser@mymachine ~ % cd tools
+myuser@mymachine tools % git clone https://github.com/SAP-samples/dwc-provisioner
+Cloning into 'dwc-provisioner'...
+myuser@mymachine tools % 
 ```
-### 4.2 - Optional Python setup
-Python allows you to create "virtual environments" to help manage dependencies between various packages and versions of packages.  <span style="font-weight: bold; color: green">It is a best practice</span> to create virtual environments for each project.  Without a virtual enviroment, all packages are installed in the "global" space and all projects will share the same package versions.
+#### 4.2 - Optional Python setup
+Python allows you to create "virtual environments" to help manage dependencies between installed packages and the versions of packages used in a specific project.  <span style="font-weight: bold; color: green">It is a best practice</span> to create a virtual environment for each project.  Without a virtual enviroment, all Python packages are installed in the "global" space and all projects share the same package versions.
 >https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/
 
 #### 4.2.1 - Install the Python virtual environment tool.
@@ -106,14 +103,14 @@ sudo apt install python3-venv
 ```
 python -m pip install --user virtualenv
 ```
-#### 4.2.2 - Configure a virtual environment
+### 4.2.2 - Configure a virtual environment
 Python virtual environments must be explicity created and activated.  The following command create a Python virtural environment in the provisioner 
 
 <pre>
-ubuntu@ip-17-1-83-11:~/tools$ cd provisioner
-ubuntu@ip-17-1-83-11:~/tools/provisioner$ python -m venv .venv
+ubuntu@ip-17-1-83-11:~/tools$ cd dwc-provisioner
+ubuntu@ip-17-1-83-11:~/tools/dwc-provisioner$ python3 -m venv .venv
 </pre>
-#### 4.2.3 - Activate the virtual environment
+### 4.2.3 - Activate the virtual environment
 <pre>
 ubuntu@ip-17-1-83-11:~/tools/provisioner$ source .venv/bin/activate
 (.venv) ubuntu@ip-17-1-83-11:~/tools/provisioner$ 
@@ -139,32 +136,37 @@ If the environment is activated correctly, a previx (.venv) is shown in the comm
 ```
 
 ### 4.4 - Configure HANA allow list (optional)
-To create and store information about SAP Data Warehouse cloud structures in an SAP HANA Cloud instance, please ensure the IP address where this tool runs is in the allow list for SAP HANA Cloud connections.  In the example below, an SAP Data Warehouse Cloud Data Access User (a.k.a., hash-tag (#) user) is the target so in SAP Data Warehouse Cloud set the IP Allow list under the System / Configuration tab.
+To create and store information about SAP Data Warehouse cloud information in an SAP HANA Cloud instance, ensure the IP address where this tool runs is in the allow list for SAP HANA Cloud connections.  In the example below, an SAP Data Warehouse Cloud Data Access User (a.k.a., hash-tag (#) user) is the target so in SAP Data Warehouse Cloud set the IP Allow list under the System / Configuration tab.
+
 ![SAP Data Warehouse Cloud - IP Allowlist](images/allowlist.png)
 
 ## 5.0 - Provisioner Configuration
-Before using this tool an SAP Data Warehouse Cloud tenant, a configuration file must be you must set the identify the target tenant and set the username and password values.
+Before using this tool, a configuration file must be you must set the identify the target tenant and set the username and password values.
 ```
-c:\> cd tools\provisioner
+c:\> cd tools\dwc-provisioner
 c:\> .venv\scripts\activate
-(.venv) c:\tools\provisioner> provisioner config
+(.venv) c:\tools\dwc-provisioner> provisioner config
   --dwc-url https://{your-tenant}.{ds}.hcs.cloud.sap
   --dwc-user user.name@domain.com
   --dwc-password NotYourPassword!
 ```
+Note: command 
+
 To use the provisioner, credentials for SAP Data Warehouse Cloud and optionally for a HANA schema.
 
 ## 6.0 - Command Syntax<a href=""></a>
+The provisioner tool accepts the following commands:
 |Command|Description|
 |-------|-----------|
 |config|Set the environment configuration|
 |users|User actions against the tenant, including list, create, and delete|
 |spaces|Create, delete and list spaces.  This includes bulk loading and member assignment|
-|shares|Create, delete and list spaces objects shared to other space(s)|
+|shares|Create, delete and list objects shared to other space(s)|
 |connections|Create, delete and list connections in one, or more spaces|
-### Command: config
-This command sets connection details for both an SAP Data Warehouse Cloud tenant and optionally an SAP HANA Cloud (or on-premise) database.  After running this command, a new configuration file names <span style="color: green">**config.ini**</span> is created in the current working directory.
->Note: the configuration command does not validate the tenant or SAP HANA configuration values.
+
+### 6.1 Command: config
+This command saves connection information for both an SAP Data Warehouse Cloud tenant and optionally an SAP HANA Cloud (or on-premise) database.  After running this command, a new configuration file names <span style="color: green">**config.ini**</span> is created in the current working directory.
+>Note: the **config** command does not validate the tenant or SAP HANA configuration values.
 
 |Parameter|Values|
 |---------|------|
@@ -180,22 +182,21 @@ This command sets connection details for both an SAP Data Warehouse Cloud tenant
 |--hana-encrypt|Include the option to encrypt SAP HANA communications (default=False)|
 |--hana-sslverify|Validate the HANA certificate (default=False)|
 
-Examples:
+**Examples**:
 1. Set the configuration for the SAP Data Warehouse Cloud tenant:
 
 ```
-(.venv) c:\tools\provisioner> provisioner config 
-     --dwc-url https://mytenant.us10.hcs.cloud.sap
-     --dwc-user not.a.real.user@dummy.sap
-     --dwc-password NotARealPassword!
+(.venv) c:\tools\dwc-provisioner> provisioner config 
+    --dwc-url https://notarealtenant.us10.hcs.cloud.sap
+    --dwc-user not.a.real.user@dummy.sap
+    --dwc-password NotARealPassword!
 ```
 
 After running this command, the config.ini file has the following content:
 
 ```
-(.venv) c:\tools\provisioner> type config.ini
+(.venv) c:\tools\dwc-provisioner> type config.ini
 [dwc]
-dwc_cli = test url
 dwc_url = https://mytenant.us10.hcs.cloud.sap
 dwc_user = not.a.real.user@dummy.sap
 dwc_password = eJwLz8vxDDT0M04xMDFKzPE0BQAqfgTD
@@ -203,31 +204,66 @@ dwc_password = eJwLz8vxDDT0M04xMDFKzPE0BQAqfgTD
 
 >Note: password values never appear in plain text.
 
-2. Set both the SAP Data Warehouse Cloud and Data Access user credentials.
+2. Set both the SAP Data Warehouse Cloud and Data Access user credentials.  This example connects to the SAP Data Warehouse Cloud tenant and a Data Access User named PROVISIONER define in the space ADMINSPACE, i.e., ADMINSPACE#PROVISIONER.
 
 ```(.venv) c:\tools\provisioner> provisioner config
-    --dwc-url https://mytenant.us10.hcs.cloud.sap 
-    --dwc-user not.a.real.user@dummy.sap 
-    --dwc-password ZyHCSwwN6jR9 
-    --hana-host 9dc97f57-263e-4683-9759-f21143124b9c.hana.prod-us10.hanacloud.ondemand.com
+    --dwc-url https://notarealtenant.us10.hcs.cloud.sap
+    --dwc-user not.a.real.user@dummy.sap
+    --dwc-password NotARealPassword!
+    --hana-host 9dc97f57.hana.prod-us10.hanacloud.ondemand.com
     --hana-port 443
-    --hana-user not.a.real.user@dummy.sap 
+    --hana-user ADMINSPACE#PROVISIONER
     --hana-password notMyPassword 
     --hana-encrypt
 ```
+### 6.3 - Command: users
+The users command can list, create, and delete users from an SAP Data Warehouse Cloud tenant.
+#### 6.3.1 - Command: users list
+The **users list** command retrieves user information from the SAP Data Warehouse Cloud tenant.
+|Parameter|Description|
+|---------|-----------|
+|-f, --format|output style: 'hana', 'csv', 'json', 'text' - default=text|
+|-p, --prefix|prefix for output, default="DWC_USERS"|
+|-s, --search|seach user names or emails on substring (default = false)|
+|-d, --directory|directory for output|
+|userName|user name(s) to list, separated by spaces|
 
-### Command: spaces
-The spaces command can create, delete and list spaces in the tenant
+**Examples:**
+1. List all the users in the tenant.
+```
+users list
+```
+2. List all the user and output the information in CSV format to the specified output directory.  The file names will be DWC_USERS.csv and DWC_USERS_role_members.csv.
+```
+users list -f csv -d c:\temp
+```
+
+3. Search the users in the tenant for any users with "sap.com" appearing anywhere in their definition (including email), as well as any user with the word "greynolds" in their definition.
+
+```
+users list -S sap.com greynolds
+```
+
+6.3.2 - Command: users create
+
+*Work in progress*
+
+6.3.3 - Command: users delete
+
+*Work in progress*
+
+### 6.2 - Command: spaces
+The spaces command can create, delete and list spaces in the tenant.
 ### Command: spaces list
-The "spaces list" command queries the SAP Data Warehouse Cloud tenant for details about the named spaces.  If no names are provided, all spaces in the tenant will be included.  For each name listed, the "spaces list" command can perform a wildcard search based on name matches.  For instance, adding the --wildcard flag and the space name "TRAINING" finds spaces such as "TRAINING_BOB", "FINANCE_TRAINING", and "HRFINANCE".
+The **spaces list** command queries the SAP Data Warehouse Cloud tenant for details for all spaces, specific spaces, or substring search of available spaces.  If no names are provided, all spaces in the tenant will be included.  For each name listed, the "spaces list" command can perform a substring search based on name matches.  For instance, adding the **--search** flag and the space name "TRAINING" finds spaces with names such as "TRAINING_BOB", "FINANCE_TRAINING", and "HRFINANCE".
 
 |Parameter|Description|
 |---------|-----------|
 |spaceName|space name(s) to list|
 |-f, --format|output style: 'hana', 'csv', 'json', 'text'|
 |-p, --prefix|prefix for output, default="DWC_SPACES"|
-|-w, --wildcard|seach expansion of space names (default = false)|
-|-o, --output|filename for output|
+|-s, --search|seach space names on substring (default = false)|
+|-d, --directory|filename for output|
 
 ### Command: spaces create
 |Parameter|Description|

@@ -23,7 +23,7 @@ def process(space_args):
 def spaces_create(space_args):
     utility.start_timer("spaces_create")
 
-    # The user could have specified a label name instead of
+    # The user could have specified a text name instead of
     # of a space name - fix it to be a functional space name.
 
     space_name = session_config.dwc.validate_space_id(space_args.spaceName)
@@ -74,19 +74,17 @@ def spaces_create(space_args):
         new_space_def[space_name]["spaceDefinition"]["members"] = []   # We will add members shortly.
     else:
         # Make sure the template space is in the tenant.
-        template_spaces = session_config.dwc.get_space_list(space_args.template, wildcard=False)
+        template_space = session_config.dwc.qet_space(space_args.template)
 
-        if template_spaces is None or len(template_spaces) != 1:
-            logger.error("spaces_create: create space {} - template space {} - invalid.".format(space_args.spaceName, space_args.template))
+        if template_space is None:
+            logger.error(f"spaces_create: create space {space_args.spaceName} - template space {space_args.template} - invalid.")
             return
 
-        template = session_config.dwc.get_space(template_spaces[0]["name"])
-        
         new_space_def = {}
         new_space_def[space_name] = {}
 
         # Copy the space definition from the template
-        new_space_def[space_name]["spaceDefinition"] = template[space_args.template]["spaceDefinition"]
+        new_space_def[space_name]["spaceDefinition"] = template_space[space_args.template]["spaceDefinition"]
         new_space_def[space_name]["spaceDefinition"]["label"] = space_label
         new_space_def[space_name]["spaceDefinition"]["members"] = []   # We will add members shortly
 
@@ -101,12 +99,11 @@ def spaces_create(space_args):
         new_space_def[space_name]["spaceDefinition"]["assignedRam"] = assigned_ram
 
     # Add members to the space definition.
-
     users = session_config.dwc.get_users(space_args.users)
 
     # Let the user know they didn't specify valid users for the space.
     if len(users) == 0:    
-        logger.warning("spaces_create: create space {} found no matching DWC users.".format(space_name))
+        logger.warning(f"spaces_create: create space {space_name} found no matching DWC users.")
         
     # Populate the user list for the new space (if any users were specified).
     for user in users:
@@ -129,12 +126,14 @@ def spaces_create(space_args):
 def spaces_delete(space_args):
     utility.start_timer("spaces_delete")
 
-    space_list = session_config.dwc.get_space_names(space_args.spaceName)
+    space_list = session_config.dwc.query_spaces(space_args.spaceName, query=False)
     
     if len(space_list) == 0:
         logger.warning("spaces_delete: no spaces found to delete")
     else:
-        for space_name in space_list:
+        for space in space_list:
+            space_name = session_config.dwc.get_space_name(space)
+            
             url = session_config.dwc.get_url("space")
             url = url.format(**{ "spaceName" : space_name })
             url += "&connections=true&definitions=true"
@@ -230,10 +229,10 @@ def spaces_bulk_create(space_args, text):
         create_args.append("--memory")
         create_args.append(space_memory)
 
-    # Add the NON-OPTIONAL space name parameter
+    # Add the NON-dPTIONAL space name parameter
     create_args.append(space_name)
 
-    # Add in the NON-OPTIONAL list of users
+    # Add in the NON-dPTIONAL list of users
     for user in text_row[constants.CONST_USERS:]:
         if isinstance(user, str) and len(user) > 0:
             create_args.append(user.strip())
@@ -252,7 +251,7 @@ def spaces_list(space_args):
     # Get the list of all spaces.  This query returns a list of spaces with 
     # only a few attributes per space.
     
-    spaces = session_config.dwc.get_space_list(space_args.spaceName, space_args.wildcard)
+    spaces = session_config.dwc.query_spaces(space_args.spaceName, space_args.query)
 
     # Capture this list of spaces to a file so we can visually review if needed.
     utility.write_json("spaces-list", spaces)  
@@ -338,7 +337,7 @@ def process_members(space_args):
         members_action(space_args)
 
 def members_list(space_args):
-    space_list = session_config.dwc.get_space_list(space_args.spaceName, wildcard=space_args.wildcard)
+    space_list = session_config.dwc.query_spaces(space_args.spaceName, query=space_args.query)
 
     members_list = []
     convert_list = True
@@ -365,7 +364,7 @@ def members_action(space_args):
         logger.warn("member_action: invalid space name specified")
         return
 
-    users = session_config.dwc.get_users(space_args.user, wildcard=space_args.wildcard)
+    users = session_config.dwc.get_users(space_args.user, query=space_args.query)
 
     if len(users) == 0:
         logger.warn("members_action: no valid users specified")

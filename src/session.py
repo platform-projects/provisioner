@@ -68,66 +68,9 @@ class DWCSession:
     def get_tenant_id(self):
         return self.dwc_user_info["session"]["tenant"][0]["id"]
 
-    def get_url(self, url_name, values={}):
-        """ Get the identified URL from the DWC urls.  Fix
-        """
-
+    def get_url(self, url_name):
+        # Get the specified URL from the DWC urls.  Update the tenant prefix
         return self.urls[url_name].replace("#dwc_url", self.dwc_url)
-
-    def validate_space_id(self, space_id):
-        """ The space ID can only contain uppercase letters, numbers, and underscores (_). Reserved keywords, 
-            such as SYS, CREATE, or SYSTEM, must not be used. Unless advised to do so, the ID must not contain 
-            prefix _SYS and should not contain prefixes: DWC_, SAP_. The maximum length is 20 characters.
-
-            Reserved keywords: SYS, PUBLIC, CREATE, SYSTEM, DBADMIN, PAL_STEM_TFIDF, SAP_PA_APL, DWC_USER_OWNER,
-            DWC_TENANT_OWNER, DWC_AUDIT_READER, DWC_GLOBAL, and DWC_GLOBAL_LOG.
-
-            Also, the keywords that are reserved for the SAP HANA database cannot be used in a space ID. See 
-            Reserved Words in the SAP HANA SQL Reference Guide for SAP HANA Platform."""
-
-        prefixes = [ '_SYS', 'DWC_', 'SAP_' ]
-        
-        reserved = [ "SYS", "PUBLIC", "CREATE", "SYSTEM", "DBADMIN", "PAL_STEM_TFIDF", "SAP_PA_APL", "DWC_USER_OWNER",
-                     "DWC_TENANT_OWNER", "DWC_AUDIT_READER", "DWC_GLOBAL", "DWC_GLOBAL_LOG" ]
-
-        if space_id is None:
-            return None
-
-        # Do some initial clean-up
-        # 1. Spaces -> underscore
-        # 2. Remove invalid characters - simply chop them out with a regular expression
-        # 3. Test for reserved characters
-
-        valid_space_id = space_id.replace(" ", "_").upper()
-        valid_space_id = re.sub("[\W]","", valid_space_id)
-
-        if len(valid_space_id) == 0 or len(valid_space_id) > 20:
-            logger.error("validate_space_id: {} is invalid and can't be fixed.".format(space_id))
-            return None
-        
-        if len(valid_space_id) > 3 and valid_space_id[0:4] in prefixes:
-            logger.error("validate_space_id: {} may not start with _SYS, DWC_, or SAP_".format(space_id))
-            return None
-
-        if space_id in reserved:
-            logger.error("validate_space_id: {} is a reserved word.".format(space_id))
-            return None
-
-        return valid_space_id
-
-    def validate_space_label(self, space_name, space_label):
-        if space_label is None:
-            return space_name
-
-        if not isinstance(space_label, str):
-            logger.warn("validate_space_label: space labels must be a string value - default to {}.".format(space_name))
-            return space_name
-
-        if len(space_label) > 30:
-            space_label = space_label[0:30]
-            logger.warn("validate_space_label: label too long - truncated to {}.")
-
-        return space_label
 
     def login(self):
         t0 = time.perf_counter()
@@ -248,6 +191,10 @@ class DWCSession:
         return self.dwc_user_info["user"]
 
     def get_user_name(self, user=None):
+        # Get the userName attribute from a user.  If no user
+        # is passed, get the logged-in user name.  We are expecting
+        # a DWC user object.
+        
         lookup_user = user
         
         # If not otherwise reqe
@@ -260,17 +207,19 @@ class DWCSession:
         return None
     
     def get_spaces(self, force=False):
-        # Assume this operation does not need to be repeated - cache
-        # the first response unless asked to force a reload.
+        # Assume this operation does not need to be repeated during this
+        # session - cache the first response unless asked to force a reload.
 
         if force == False and self.spaces_cache is not None:
             return self.spaces_cache
 
         # Query for a list of all spaces in the tenant.  Note: this
         # operation is valid regardless of whether the current user
-        # is a member of the space.
+        # is a member of any particular space.
 
         self.spaces_cache = self.get_json('spaces')["results"]
+        
+        # As a separate query, ask for the utilization of the spaces.
         self.spaces_resources_cache = self.get_json('spaces_resources')
         
         # Enrich the spaces with consumption information
@@ -298,9 +247,9 @@ class DWCSession:
 
         return None
         
-    def get_space_list(self, search_list, wildcard=True, force=False):
-        # Locate the spaces identifed in the search list by space name. If wildcard
-        # is true, use a "contains" test to match space names.
+    def get_space_list(self, search_list, query=True, force=False):
+        # Locate the spaces identifed in the search list by comparing space
+        # names. If "query" is true, use a "contains" test to match space names.
 
         # Get all the known spaces in the tenant.
         spaces = self.get_spaces(force=force)
@@ -327,59 +276,61 @@ class DWCSession:
             matched = False
 
             for space in spaces:
-                if wildcard:
-                    if space["name"].upper().find(search_space_name) != -1:
+                if query:
+                    if space["name"].upper().find(search_space_name.upper()) != -1:
                         return_list.append(space)
                         matched = True
                 else:
                     if space["name"] == search_space_name:
                         return_list.append(space)
                         matched = True
-                        break  # This specific space has been included, we are done
+                        
+                        break  # This specific space has been included, we are done looking
 
             if not matched:
-                logger.warn(f"space list item {search_space_name} not found - did you want wildcards?")
+                logger.warn(f"space list item {search_space_name} not found - did you want to use a query?")
         
         return return_list
 
     def fix_space_name(self, space_name):
         return space_name.upper()
 
-    def is_space(self, space_name, wildcard=False):
-        space_list = self.get_space_list(space_name, wildcard)
+    def is_space(self, space_name, query=False):
+        space_list = self.get_space_list(space_name, query)
         
         if len(space_list) == 0:
             return False
         else:
             return True
         
-    def get_space(self, space_name, wildcard=False):
+    def get_space(self, space_name, query=False):
         fixed_space_name = self.fix_space_name(space_name)
 
         # Lookup the SPACE name to ensure it exists before looking up the details.
         
-        space_list = self.get_space_list(space_name, wildcard)
+        space_list = self.get_space_list(space_name, query)
         
         if len(space_list) == 1:
+            # Always ask the tenant for a new version of the space.
             space = self.get_json("space", { "space_name" : fixed_space_name })
         else:
             space = None
 
         return space
 
-    def get_shares(self, space_name=None, object_name=None, target=None, wildcard=False):
+    def get_shares(self, space_name=None, object_name=None, target=None, query=False):
         shares_list = []
         
         # Figure out which spaces we are looking in - if nothing was passed
         # we will look in all spaces.
         
-        spaces = self.get_space_list(space_name, wildcard=wildcard)
+        spaces = self.get_space_list(space_name, query=query)
         
         if len(spaces) == 0:
             logger.warn("get_shares: No matching spaces found.")
             return shares_list
         
-        # If an object_name was passed (even if wildcard), look for those
+        # If an object_name was passed (even if search), look for those
         # matching objects across the spaces we are searching (or all).
         
         for space in spaces:
@@ -450,7 +401,7 @@ class DWCSession:
             logger.warn("add_share: no valid targets specified.")
 
     def get_connections(self, space, connection_name=None):
-        # The caller could pass a 1) space definition, 2) a space name,
+        # The caller could pass 1) a space definition, 2) a space name,
         # or 3) a space ID - figure it out.  If the space name is
         # empty, do nothing.
 
@@ -484,7 +435,6 @@ class DWCSession:
 
         if connection_name is None:
             # If we didn't get a specific name to find, return all the connections.
-
             return connections
         else:
             # Look for a matching connection name.
@@ -499,7 +449,7 @@ class DWCSession:
 
         return []
 
-    def add_connection(self, space_name, conn_file, force=False):
+    def connection_add(self, space_name, conn_file, force=False):
         space_id = self.get_space_id(space_name)
 
         if space_id is None:
@@ -509,19 +459,20 @@ class DWCSession:
         # Compute the URL for the POST command needed to add a connection.
         space_url = self.get_url("connection").format(space_id)
 
-        # Load the specified JSON file of the new connection
+        # Load the specified JSON file of the connection - this must be a valid
+        # JSON that includes the username and password values of the connection.
 
         try:
             with open(conn_file, "r") as json_file:
                 conn_json = json.load(json_file)
         except IOError:
-            logger.error("add_connection: space {} - file {} not found.".format(space_name, conn_file))
+            logger.error(f"add_connection: space {space_name} - file {conn_file} not found.")
             return None
 
-        # Do a quick sanity check on the JSON to ensure it looks like a connection.
+        # Do a quick sanity check on the JSO we just loaded from a file to ensure it looks like a connection.
 
         if "data" not in conn_json or "name" not in conn_json["data"]:
-            logger.error("add_connection: space {} - file {} is not a valid connection.".format(space_name, conn_file))
+            logger.error(f"add_connection: space {space_name} - file {conn_file} is not a valid connection.")
             return None
 
         conn_name = conn_json["data"]["name"]
@@ -542,13 +493,14 @@ class DWCSession:
                 logger.warning("add_connection: space {} - connection {} already exists.".format(space_name, conn_name))
                 return None
 
+        # Create the connection with a POST operation
         return self.post(space_url, json.dumps(conn_json))
 
-    def delete_connection(self, space_name, conn_name):
+    def connection_delete(self, space_name, conn_name):
         space_id = self.get_space_id(space_name)
 
         if space_id is None:
-            logger.error("delete_connection: space {} not found.".format(space_name))
+            logger.error(f"delete_connection: space {space_name} not found.")
             return None
 
         # Check to see if the connection already exists in the space.
@@ -556,25 +508,27 @@ class DWCSession:
         connection = self.get_connections(space_name, conn_name)
 
         if connection is None:
-            logger.warning("delete_connection: space {} - connection {} not found.".format(space_name, conn_name))
+            logger.warning(f"delete_connection: space {space_name} - connection {conn_name} not found.")
             return None
 
         connection_id = connection[0]["id"]
 
-        # Compute the URL for the POST command needed to add a connection.
+        # Compute the URL for the POST command needed to delete a connection.
         space_url = self.get_url("connection_delete").format(connection_id, space_id)
 
+        # Delete the connection with a DELETE operation.
         return self.delete(space_url)
 
     def is_dwc_user(self, user):
-        user = self.get_users(user, wildcard=False)
+        # Test is the passed user exists in the DWC tenant list of users.
+        user = self.get_users(user, query=False)
         
         if len(user) == 1:
             return True
         
         return False
     
-    def get_users(self, users_search=None, force=False, wildcard=True):
+    def get_users(self, users_query=None, force=False, query=True):
         '''
         Get the list of user from the tenant as a deep copy.  For repeat calls,
         always start with a cached user list.  Users are considered non-mutable
@@ -591,7 +545,7 @@ class DWCSession:
 
         # If no search list was given, return the entire list.
 
-        if users_search is None:
+        if users_query is None:
             return copy.deepcopy(self.users_cache)  # Return a mutable list
 
         # We could get a few different requests:
@@ -601,35 +555,35 @@ class DWCSession:
         # 4. A list of any of the above.
         
         # If we find that we have a dictionary object that looks like a
-        # DWC user, simply return the user back as a user.
+        # DWC user, simply return the user back as the found user.
         
-        if isinstance(users_search, dict) and "userName" in users_search:
-            return [ users_search ]  # we don't need to search anything
+        if isinstance(users_query, dict) and "userName" in users_query:
+            return [ users_query ]  # we don't need to search anything
         
         # We want to search a list of users, convert a simple string into a list
 
-        if isinstance(users_search, str):
+        if isinstance(users_query, str):
             # add the string to the search list - note: we need to get the full user object
-            users_search = [ users_search ]
+            users_query = [ users_query ]
 
         # If we got a space user object, add the name - note: we need to get the full user object
-        if isinstance(users_search, dict) and "name" in users_search and "type" in users_search:
-            users_search = [ users_search["name"] ]
+        if isinstance(users_query, dict) and "name" in users_query and "type" in users_query:
+            users_query = [ users_query["name"] ]
             
         # Make sure we have a list with at least one member.
 
-        if not isinstance(users_search, list):
-            logger.warning("get_users: invalid users parameter is not a list")
+        if not isinstance(users_query, list):
+            logger.warning("get_users: invalid users parameter is not a valid list")
             return []
 
-        if len(users_search) == 0:
+        if len(users_query) == 0:
             return copy.deepcopy(self.users_cache)
 
         # Setup the mutable return list.
 
         return_users = []
 
-        for pattern in users_search:
+        for pattern in users_query:
             # If we are boiling down a list of users, pull the
             # username out of the pattern object.
             
@@ -637,15 +591,16 @@ class DWCSession:
                 pattern = pattern["userName"]
                 
             for user in self.users_cache:
-                if wildcard:
+                if query:
+                    # For a query search, convert the entire user JSON to a string and
+                    # search for any instance of the query pattern.
+                    
                     if str(user).upper().find(pattern.upper()) != -1:
                         return_users.append(copy.deepcopy(user))
                 else:
-                    samlUserName = user["metadata"]["samlUserMapping"][0]["samlUserName"]
-                    
                     if user["userName"].upper() == pattern.upper() or user["parameters"]["EMAIL"].upper() == pattern.upper():
                         return_users.append(copy.deepcopy(user))
-                        break  # Non-wildcard pattern has been matched, stop looking
+                        break  # Non-search pattern has been matched, stop looking
 
         return return_users
 
@@ -654,7 +609,7 @@ class DWCSession:
         
         if isinstance(space, dict):
             # If the name attribute is a direct value of this dictionary,
-            # assume this is space from a space_list query.
+            # assume this is space from a space query.
             
             if "name" in space:
                 space_name = space["name"]
@@ -663,11 +618,12 @@ class DWCSession:
                 # the FIRST dictionary key.  In this type of object
                 # there must be a spaceDefinition object.
                 
-                space_name = next(iter(space))
+                space_name = self.get_space_name(space)
 
                 if "spaceDefinition" not in space[space_name]:
                     logger.warn("get_space_name: invalid space object.")
         elif isinstance(space, str):
+            # With no other information, simply return the passed name.
             space_name = space
 
         return space_name
@@ -681,7 +637,7 @@ class DWCSession:
         if isinstance(dbuser_hashtags, str):
             dbuser_hashtags = [ dbuser_hashtags ]
 
-        # Convert a dictionary            
+        # See if the user passed a valid space name.
         space_name = self.get_space_name(space_name)
 
         if space_name is None:
@@ -705,7 +661,7 @@ class DWCSession:
 
         objects = self.get_json("dbuser_objects")
         
-        if "items" in objects:
+        if "items" in objects:  # Results are in a sub-object named items
             return objects["items"]
         else:
             return []
@@ -1019,6 +975,61 @@ class DWCSession:
         if process_output.returncode != 0:
             logger.error("Invalid CLI result: {}".format(process_output.stdout))
             logger.error(process_output.stdout)
+
+    def validate_space_id(self, space_id):
+        """ The space ID can only contain uppercase letters, numbers, and underscores (_). Reserved keywords, 
+            such as SYS, CREATE, or SYSTEM, must not be used. Unless advised to do so, the ID must not contain 
+            prefix _SYS and should not contain prefixes: DWC_, SAP_. The maximum length is 20 characters.
+
+            Reserved keywords: SYS, PUBLIC, CREATE, SYSTEM, DBADMIN, PAL_STEM_TFIDF, SAP_PA_APL, DWC_USER_OWNER,
+            DWC_TENANT_OWNER, DWC_AUDIT_READER, DWC_GLOBAL, and DWC_GLOBAL_LOG.
+
+            Also, the keywords that are reserved for the SAP HANA database cannot be used in a space ID. See 
+            Reserved Words in the SAP HANA SQL Reference Guide for SAP HANA Platform."""
+
+        prefixes = [ '_SYS', 'DWC_', 'SAP_' ]
+        
+        reserved = [ "SYS", "PUBLIC", "CREATE", "SYSTEM", "DBADMIN", "PAL_STEM_TFIDF", "SAP_PA_APL", "DWC_USER_OWNER",
+                     "DWC_TENANT_OWNER", "DWC_AUDIT_READER", "DWC_GLOBAL", "DWC_GLOBAL_LOG" ]
+
+        if space_id is None:
+            return None
+
+        # Do some initial clean-up
+        # 1. Spaces -> underscore
+        # 2. Remove invalid characters - simply chop them out with a regular expression
+        # 3. Test for reserved characters
+
+        valid_space_id = space_id.replace(" ", "_").upper()
+        valid_space_id = re.sub("[\W]","", valid_space_id)
+
+        if len(valid_space_id) == 0 or len(valid_space_id) > 20:
+            logger.error("validate_space_id: {} is invalid and can't be fixed.".format(space_id))
+            return None
+        
+        if len(valid_space_id) > 3 and valid_space_id[0:4] in prefixes:
+            logger.error("validate_space_id: {} may not start with _SYS, DWC_, or SAP_".format(space_id))
+            return None
+
+        if space_id in reserved:
+            logger.error("validate_space_id: {} is a reserved word.".format(space_id))
+            return None
+
+        return valid_space_id
+
+    def validate_space_label(self, space_name, space_label):
+        if space_label is None:
+            return space_name
+
+        if not isinstance(space_label, str):
+            logger.warn("validate_space_label: space labels must be a string value - default to {}.".format(space_name))
+            return space_name
+
+        if len(space_label) > 30:
+            space_label = space_label[0:30]
+            logger.warn("validate_space_label: label too long - truncated to {}.")
+
+        return space_label
             
     def set_header(self, header, value):
         self.session.headers[header] = value

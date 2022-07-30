@@ -1,4 +1,4 @@
-import logging, re, time, sys, math
+import logging, re, time, sys, math, os
 
 import constants, session_config
 import json_tools as jt
@@ -175,8 +175,15 @@ def recurse_format(data, template, output_handle):
 def write_list(list_data, args):
     logger.setLevel(session_config.log_level)
 
-    if args.output is not None:
-        output_handle = open(args.output, "w")
+    if args.directory is not None:
+        prefix = args.command
+        
+        if args.prefix is None or len(args.prefix) == 0:
+            prefix = args.prefix
+            
+        filename = os.path.join(args.directory, prefix + ".txt")
+        
+        output_handle = open(filename, "w")
     else:
         output_handle = sys.stdout
     
@@ -200,7 +207,7 @@ def write_list(list_data, args):
     recurse_format(list_data, template, output_handle)
 
     # If we are writing to an output file, close the file.    
-    if args.output is not None:
+    if args.directory is not None:
         output_handle.close()
 
 if __name__ == '__main__':

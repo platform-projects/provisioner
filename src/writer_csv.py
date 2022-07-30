@@ -4,21 +4,25 @@ import session_config
 
 logger = logging.getLogger("writer_csv")
 
-def recurse_columns(columns, list_data, param_name):
-    csv_name = param_name.lower()
-
-    # Lazy instantiation of the column list - we may see
-    # not see the same csv in every pass through lists.
-    
-    if csv_name not in columns:
-        columns[csv_name] = { "columns": [], "file_handle" : None }
+def recurse_columns(columns, list_data, prefix):
+    csv_name = prefix.upper()
 
     # Search through all the rows because some columns are not consistently
     # returned by the URL/REST queries.  Looping over all the rows helps ensure
     # we capture all the possible columns (attributes).
         
     for row in list_data:
+        if not isinstance(row, dict):
+            continue
+        
         row_column_names = row.keys()
+
+        # Lazy instantiation of the column list - we may see
+        # not see the same csv content in every pass through
+        # list objects.
+        
+        if csv_name not in columns:
+            columns[csv_name] = { "columns": [], "file_handle" : None }
 
         for column_name in row_column_names:
             if column_name.find("@") != -1:  # Exclude metadata columns.
@@ -30,13 +34,13 @@ def recurse_columns(columns, list_data, param_name):
             # across all rows in the CSV file.
 
             if column_name not in columns[csv_name]["columns"]:
-                columns[csv_name].append(column_name)
+                columns[csv_name]["columns"].append(column_name)
 
                 if isinstance(row[column_name], list):
                     recurse_columns(columns, row[column_name], csv_name + "_" + column_name)
 
-def write_csv(columns, list_data, param_name):
-    csv_name = param_name.lower()
+def write_csv(columns, list_data, prefix):
+    csv_name = prefix.upper()
     csv_file = csv_name + ".csv"
 
     if csv_name not in columns:
@@ -51,18 +55,31 @@ def write_csv(columns, list_data, param_name):
         comma = ""
 
         for heading in columns[csv_name]["columns"]:
-            heading_line += comma + '"' + columns[csv_name]["columns"][heading] + '"'
+            heading_line += comma + '"' + heading + '"'
             comma = ","
 
         columns[csv_name]["file_handle"].write(f"{heading_line}\n")
 
     for row in list_data:
-        row_column_names = row.keys()
+        output_line = ""
+        comma = ""
+        
+        for column_name in columns[csv_name]["columns"]:
+            if column_name in row:
+                output_line += comma + str(row[column_name])
+                comma = ","
+            
+        columns[csv_name]["file_handle"].write(f"{output_line}\n")
     
 def write_list(list_data, args):
     logger.setLevel(session_config.log_level)
 
-    columns = recurse_columns(list_data, args.prefix)
+    # Build out the full defintions or all the CSV files we will be
+    # creating from this object.  There may be many sub-objects
+    # in the JSON - each one gets a separate file.
+    columns = {}
+    
+    recurse_columns(columns, list_data, args.prefix)
 
     write_csv(columns, list_data, args.prefix)
 

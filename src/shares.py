@@ -6,6 +6,8 @@ import writer
 logger = logging.getLogger("shares")
 
 def process(share_args):
+    logger.setLevel(session_config.log_level)
+    
     """ Sub-processor for the "shares" command. """
 
     logger.setLevel(session_config.log_level)
@@ -23,7 +25,7 @@ def shares_list(share_args):
     shares = session_config.dwc.get_shares(share_args.sourceSpace, 
                                            share_args.sourceObject, 
                                            share_args.targetSpace, 
-                                           share_args.wildcard)
+                                           share_args.query)
     
     writer.write_list(shares, share_args)
     
@@ -31,15 +33,17 @@ def shares_create(share_args):
     # NOTE: We DO NOT validate the object to share - the
     # share operation will report any error.
 
-    # Verify the source space exists - the space must exist and not be a wildcard
+    # Verify the source space exists - the space must exist and not be a
+    # wildcard search.
+    
     source_space = session_config.dwc.get_space(share_args.sourceSpace)
 
     if source_space is None:
         logger.error(f"shares_create: source space {share_args.sourceSpace} not found")
         return
 
-    # The user can provide multiple spaces, get the list.
-    target_spaces = session_config.dwc.get_space_list(share_args.targetSpace)
+    # The user can provide multiple spaces, build the list.
+    target_spaces = session_config.dwc.query_spaces(share_args.targetSpace)
 
     if len(target_spaces) == 0:
         logger.error("shares_create: target space(s) not found")

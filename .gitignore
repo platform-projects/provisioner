@@ -2,6 +2,7 @@
 .vs/*
 
 config.ini
+*.csv
 working/
 .DS_Store
 
@@ -98,7 +99,7 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+# PEP 582; used by e.g. github.com/David-dConnor/pyflow
 __pypackages__/
 
 # Celery stuff

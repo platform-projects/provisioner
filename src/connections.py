@@ -20,7 +20,7 @@ def connections_create(connection_args):
     utility.start_timer("connections_create")
 
     # See if the space exists.
-    space_list = session_config.dwc.get_space_list(connection_args.targetSpace)
+    space_list = session_config.dwc.query_spaces(connection_args.targetSpace)
 
     if len(space_list) == 0:
         logger.warn("connections_create: no spaces found to create connection")
@@ -33,12 +33,12 @@ def connections_create(connection_args):
 def connections_delete(connection_args):
     utility.start_timer("connections_delete")
 
-    space_list = session_config.dwc.get_space_list(connection_args.targetSpace, False)
+    space_list = session_config.dwc.query_spaces(connection_args.targetSpace, False)
 
     if len(space_list) == 0:
         logger.warn("connections_delete: no spaces found")
     else:
-        for space in session_config.dwc.get_space_list(space_list):
+        for space in session_config.dwc.query_spaces(space_list):
             session_config.dwc.delete_connection(space["name"], connection_args.connectionName)
 
     logger.debug(utility.log_timer("connections_delete", "completed."))
@@ -47,7 +47,7 @@ def connections_list(connection_args):
     utility.start_timer("connections_list")
 
     # Expand the list with any wild cards before processing.
-    space_list = session_config.dwc.get_space_list(connection_args.sourceSpace, connection_args.wildcard)
+    space_list = session_config.dwc.query_spaces(connection_args.sourceSpace, connection_args.query)
 
     if len(space_list) == 0:
         logger.warn("connections_list: no spaces found to list")
