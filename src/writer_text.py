@@ -37,6 +37,9 @@ class FieldFormat:
     def is_gigabyte(self):
         return self.get_format() == "g"
     
+    def is_utc(self):
+        return self.get_format() == "u"
+    
 def lookup_value(data, field_def):
     # Get the requested value - invalid lookups always return a None value.
     lookup_value = ""

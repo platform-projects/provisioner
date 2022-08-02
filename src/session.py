@@ -19,13 +19,13 @@ class DWCSession:
                       "logon"             : "#dwc_url/sap/fpa/services/rest/epm/session?action=logon",
                       "spaces"            : "#dwc_url/dwaas-core/repository/spaces",
                       "spaces_resources"  : "#dwc_url/dwaas-core/resources/spaces",
-                      "space"             : "#dwc_url/dwaas-core/api/v1/content?space={space_name}&spaceDefinition=true",
+                      "space"             : "#dwc_url/dwaas-core/api/v1/content?space={spaceID}&spaceDefinition=true",
                       "shares"            : "#dwc_url/dwaas-core/repository/shares",
-                      "share_list"        : "#dwc_url/dwaas-core/repository/shares?spaceName={spaceName}&objectNames={objectNames}",
-                      "connections"       : "#dwc_url/dwaas-core/repository/remotes?space_ids={space_id}&inSpaceManagement=true&details=",
+                      "share_list"        : "#dwc_url/dwaas-core/repository/shares?spaceName={spaceID}&objectNames={objectNames}",
+                      "connections"       : "#dwc_url/dwaas-core/repository/remotes?space_ids={spaceGUID}&inSpaceManagement=true&details=",
                       "connection"        : '#dwc_url/dwaas-core/repository/remotes/?space_ids={}&inSpaceManagement=true',
                       "connection_delete" : "#dwc_url/dwaas-core/repository/remotes/{}?space_ids={}",
-                      "remotetables"      : "#dwc_url/dwaas-core/monitor/{space_name}/remoteTables?includeBusinessNames=true",
+                      "remotetables"      : "#dwc_url/dwaas-core/monitor/{spaceID}/remoteTables?includeBusinessNames=true",
                       "businessbuilder"   : "#dwc_url/dwaas-core/c4s/internal_services/loadContent",
                       "users"             : "#dwc_url/sap/fpa/services/rest/epm/security/list/users?detail=true&parameter=key_value&includePending=true&forceLicensingCheck=true&tenant={tenant_id}"
                     }
@@ -163,7 +163,7 @@ class DWCSession:
 
             self.elapsed = time.perf_counter() - t0
 
-            logger.debug(f"succefully logged in as {self.j_username}")
+            logger.debug(f"successfully logged in as {self.j_username}")
 
             # Initialize the user the same way DWC does after getting authenticated.
             # The key here is to get the details about the user AND the DWC tenant.
@@ -231,9 +231,9 @@ class DWCSession:
             
         return self.spaces_cache
 
-    def get_space_id(self, space_name):
-        if space_name is None or not isinstance(space_name, str) or len(space_name) == 0:
-            logger.error("get_space_id: invalid space_name or ID.")
+    def get_space_guid(self, space_id):
+        if space_id is None or not isinstance(space_id, str) or len(space_id) == 0:
+            logger.error("get_space_guid: invalid space ID")
             return None
         
         # Search the available spaces by name and, if found return
@@ -242,12 +242,12 @@ class DWCSession:
         spaces = self.get_spaces()
 
         for space in spaces:
-            if space["name"] == space_name:
+            if space["name"] == space_id:
                 return space["id"]
 
         return None
         
-    def get_space_list(self, search_list, query=True, force=False):
+    def query_spaces(self, search_list, query=True, force=False):
         # Locate the spaces identifed in the search list by comparing space
         # names. If "query" is true, use a "contains" test to match space names.
 
@@ -287,16 +287,13 @@ class DWCSession:
                         
                         break  # This specific space has been included, we are done looking
 
-            if not matched:
-                logger.warn(f"space list item {search_space_name} not found - did you want to use a query?")
-        
         return return_list
 
     def fix_space_name(self, space_name):
         return space_name.upper()
 
-    def is_space(self, space_name, query=False):
-        space_list = self.get_space_list(space_name, query)
+    def is_space(self, space_id, query=False):
+        space_list = self.query_spaces(space_id, query=False)
         
         if len(space_list) == 0:
             return False
@@ -308,23 +305,23 @@ class DWCSession:
 
         # Lookup the SPACE name to ensure it exists before looking up the details.
         
-        space_list = self.get_space_list(space_name, query)
+        space_list = self.query_spaces(space_name, query)
         
         if len(space_list) == 1:
             # Always ask the tenant for a new version of the space.
-            space = self.get_json("space", { "space_name" : fixed_space_name })
+            space = self.get_json("space", { "spaceID" : fixed_space_name })
         else:
             space = None
 
         return space
 
-    def get_shares(self, space_name=None, object_name=None, target=None, query=False):
+    def get_shares(self, space=None, object_name=None, target=None, query=False):
         shares_list = []
         
         # Figure out which spaces we are looking in - if nothing was passed
         # we will look in all spaces.
         
-        spaces = self.get_space_list(space_name, query=query)
+        spaces = self.query_spaces(space, query=query)
         
         if len(spaces) == 0:
             logger.warn("get_shares: No matching spaces found.")
@@ -354,7 +351,7 @@ class DWCSession:
                 continue
             
             # Ask for the all the shares for this space.
-            shares = self.get_json("share_list", values={ "spaceName" : space["name"], "objectNames" : search_objects })
+            shares = self.get_json("share_list", values={ "spaceID" : space["name"], "objectNames" : search_objects })
             
             # We should get back a dictionary of objects with each object listing
             # their shares.  Loop over to see if we are only looking for a specific
@@ -372,6 +369,9 @@ class DWCSession:
         return shares_list
             
     def add_share(self, space_name, object_name, targets):
+        # A single share call to DWC can share the same object to many
+        # spaces.  Start with an empty list.
+        
         data = { "spaceName"         : space_name,
                  "objectNames"       : [ object_name ],
                  "shareSpaceNames"   : [],
@@ -412,18 +412,18 @@ class DWCSession:
             # If we received a string, assume it's a name and look up the ID.  If the
             # name doesn't resolve, assume it is an ID.
 
-            space_id = self.get_space_id(space)
+            space_guid = self.get_space_guid(space)
 
-            if space_id is None:
-                space_id = space
+            if space_guid is None:
+                space_guid = space
         elif isinstance(space, dict):
             # Do a quick sanity check - if there is no "id" column then
             # this is not a valid space object.
 
             if "id" in space:
-                space_id = space["id"]
+                space_guid = space["id"]
             else:
-                return None
+                return []
 
         # By now, we should have a value representing a space ID - the space may
         # not exist, but we have a value.
@@ -431,7 +431,7 @@ class DWCSession:
         # Get the connections, the connections query is guarenteed to return a
         # "results" object - even if there are no connections in the space.
 
-        connections = self.get_json("connections", { "space_id" : space_id})["results"]
+        connections = self.get_json("connections", { "spaceGUID" : space_guid})["results"]
 
         if connection_name is None:
             # If we didn't get a specific name to find, return all the connections.
@@ -449,15 +449,15 @@ class DWCSession:
 
         return []
 
-    def connection_add(self, space_name, conn_file, force=False):
-        space_id = self.get_space_id(space_name)
+    def connection_add(self, space, conn_file, force=False):
+        space_guid = self.get_space_guid(space)
 
-        if space_id is None:
-            logger.error("add_connection: space {} not found.".format(space_name))
+        if space_guid is None:
+            logger.error("add_connection: space not found")
             return None
 
-        # Compute the URL for the POST command needed to add a connection.
-        space_url = self.get_url("connection").format(space_id)
+        # Compute the URL for the POST command to add a connection.
+        space_url = self.get_url("connection").format(space_guid)
 
         # Load the specified JSON file of the connection - this must be a valid
         # JSON that includes the username and password values of the connection.
@@ -466,38 +466,39 @@ class DWCSession:
             with open(conn_file, "r") as json_file:
                 conn_json = json.load(json_file)
         except IOError:
-            logger.error(f"add_connection: space {space_name} - file {conn_file} not found.")
+            logger.error(f"add_connection: space {space_guid} - file {conn_file} not found.")
             return None
 
-        # Do a quick sanity check on the JSO we just loaded from a file to ensure it looks like a connection.
+        # Do a quick sanity check on the JSON we just loaded from a file to 
+        # ensure it looks like a connection.
 
         if "data" not in conn_json or "name" not in conn_json["data"]:
-            logger.error(f"add_connection: space {space_name} - file {conn_file} is not a valid connection.")
+            logger.error(f"add_connection: file is not a valid connection")
             return None
 
         conn_name = conn_json["data"]["name"]
 
         # Check to see if the connection already exists in the space.
 
-        connection = self.get_connections(space_name, conn_name)
+        connection = self.get_connections(space_guid, conn_name)
 
-        if connection is not None:
+        if len(connection) == 1:
             if force:
                 # The user asked us to delete any existing connection before
                 # re-creating the same name - delete the connection.
 
-                self.delete_connection(space_name, conn_name)
+                self.delete_connection(space_guid, conn_name)
             else:
                 # Let the user know the connection already exists.
 
-                logger.warning("add_connection: space {} - connection {} already exists.".format(space_name, conn_name))
+                logger.warning("add_connection: connection already exists")
                 return None
 
         # Create the connection with a POST operation
         return self.post(space_url, json.dumps(conn_json))
 
     def connection_delete(self, space_name, conn_name):
-        space_id = self.get_space_id(space_name)
+        space_id = self.get_space_guid(space_name)
 
         if space_id is None:
             logger.error(f"delete_connection: space {space_name} not found.")
@@ -604,29 +605,29 @@ class DWCSession:
 
         return return_users
 
-    def get_space_name(self, space):
-        space_name = None
+    def get_space_id(self, space):
+        space_id = None
         
         if isinstance(space, dict):
             # If the name attribute is a direct value of this dictionary,
-            # assume this is space from a space query.
+            # assume this is space from the short space query.
             
             if "name" in space:
-                space_name = space["name"]
+                space_id = space["name"]
             else:
                 # Assume this is a space object where the name is
                 # the FIRST dictionary key.  In this type of object
                 # there must be a spaceDefinition object.
                 
-                space_name = self.get_space_name(space)
+                space_id = next(iter(space))
 
-                if "spaceDefinition" not in space[space_name]:
+                if "spaceDefinition" not in space[space_id]:
                     logger.warn("get_space_name: invalid space object.")
         elif isinstance(space, str):
             # With no other information, simply return the passed name.
             space_name = space
 
-        return space_name
+        return space_id
 
     def get_dbuser_objects(self, space_name, dbuser_hashtags):
         # This routine never produces an error - invalid, or no hashtag keys returns an empty list.
@@ -638,7 +639,7 @@ class DWCSession:
             dbuser_hashtags = [ dbuser_hashtags ]
 
         # See if the user passed a valid space name.
-        space_name = self.get_space_name(space_name)
+        space_name = self.get_space_id(space_name)
 
         if space_name is None:
             return []
@@ -667,7 +668,7 @@ class DWCSession:
             return []
 
     def get_data_builder_objects(self, space, shared_only=False):
-        space_name = self.get_space_name(space)
+        space_id = self.get_space_id(space)
 
         # Pick the types of objects to include...
         objects_query = '('
@@ -687,8 +688,8 @@ class DWCSession:
             objects_query += ' AND shared_with_space_name:NE(S):"NULL"'
 
         # If we have a space_id, add it to the query.            
-        if space_name is not None:
-            objects_query += f' AND space_name:EQ:"{space_name}"'
+        if space_id is not None:
+            objects_query += f' AND space_name:EQ:"{space_id}"'
 
         # Complete the query specification by wrapping in a SCOPE   
         objects_query = f"query='SCOPE:SEARCH_DESIGN ({objects_query}) *'"
@@ -769,81 +770,83 @@ class DWCSession:
         return remote_tables
 
     def is_member(self, space_object, user=None):
+        # If not specified, assume we want to know if the current user is a
+        # member of the space.
+        if user is None:
+            user = self.get_user_name()
+            
         # Validate the user first to make sure we are looking for a real user.
         if not self.is_dwc_user(user):
-            logger.debug("is_member: a user was not specified.")
+            logger.debug("is_member: a valid user was not specified.")
             return False
 
-        # Now validate the space where we want to add the user.
+        # Now validate the space exists.
         if space_object is None:
             logger.debug("is_member: a space_name was not specified.")
             return False
 
         # Assume we got a dictionary
         space = space_object   
-        space_name = None
+        space_id = None
         
-        # We could receive a space name or an actual space definition.  If we
+        # We could receive a space id or an actual space definition.  If we
         # get a dictionary, assume the first key is the name of the space.
         
         if isinstance(space_object, dict):
-            space_name = next(iter(space_object))
-        elif isinstance(space_object, str) and len(space_object) == 0:
-            space_name = space_object
-            space = self.get_space(space_name)
+            space_id = next(iter(space_object))
+        elif isinstance(space_object, str) and len(space_object) > 0:
+            space_id = space_object
+            space = self.get_space(space_id)
         
         # Test the object to ensure it is a DWC space definition.
-        if space_name is None or space_name not in space or "spaceDefinition" not in space[space_name]:
+        if space_id is None or space_id not in space or "spaceDefinition" not in space[space_id]:
             logger.warn("is_member: invalid space dictionary.")
             return False
         
         # There may be no members, otherwise search for our user name.
-        if "members" in space[space_name]["spaceDefinition"]:
-            for member in space[space_name]["spaceDefinition"]["members"]:
+        if "members" in space[space_id]["spaceDefinition"]:
+            for member in space[space_id]["spaceDefinition"]["members"]:
                 if member["name"] == self.get_user_name(user):  # Are we a member of the space?
                     return True
 
         return False
         
-    def add_members(self, space, users):
+    def add_members(self, space, users, query=False):
         t0 = time.perf_counter()
 
-        # If we got a name, find the space object
+        # If we got a string for the space ID, find the space object
         if isinstance(space, str):
             space = self.get_space(space)
             
         # The space must be an actual space object with the expected structure
         if space is None or not isinstance(space, dict):
-            logger.error("add_member: invalid space object")
-            return
-        
-        # The first key must be the name of the space.
-        space_name = self.get_space_name(space)
+            logger.error("add_member: invalid space object - not a dictionary")
+        else:
+            # The first key must be the name of the space.
+            space_id = self.get_space_id(space)
 
-        # Check the space object properties.        
-        if space_name is None or "spaceDefinition" not in space[space_name]:
-            logger.error("add_member: invalid space object")        
-            return
+            # Check the space object properties.        
+            if space_id is None or "spaceDefinition" not in space[space_id]:
+                logger.error("add_member: invalid space object")        
+            else:
+                # Now figure out who's being added - could be many users
+                user_list = self.get_users(users, query=query)
+                
+                if len(user_list) == 0:
+                    logger.warning("add_members: invalid list of users")
+                else:
+                    added_user = False
+                    
+                    for user in user_list:
+                        # If the user is already a member, no action necessary.
+                        if not self.is_member(space, user):
+                            space[space_id]["spaceDefinition"]["members"].append({ 'name' : user["userName"], 'type' : 'user' })
+                            added_user = True
+                    
+                    if added_user:
+                        self.put_space(space)
         
-        # Now figure out who's being added - could be many users
-        user_list = self.get_users(users)
-        
-        if len(user_list) == 0:
-            logger.warning("add_members: invalid list of users")
-            return
-        
-        added_user = False
-        
-        for user in user_list:
-            # If the user is already a member, no action necessary.
-            if not self.is_member(space, user):
-                space[space_name]["spaceDefinition"]["members"].append({ 'name' : user["userName"], 'type' : 'user' })
-                added_user = True
-        
-        if added_user:
-            self.put_space(space)
-        
-    def remove_members(self, space, users):
+    def remove_members(self, space, users, query=False):
         t0 = time.perf_counter()
 
         # If we got a name, find the space object
@@ -864,7 +867,7 @@ class DWCSession:
             return
         
         # Now figure out who's being added - could be many users
-        user_list = self.get_users(users)
+        user_list = self.get_users(users, query=query)
         
         if len(user_list) == 0:
             logger.warning("remove_members: invalid list of users")
@@ -881,11 +884,13 @@ class DWCSession:
             for user in user_list:
                 if space_user["name"] == user["userName"]:
                     skip_user = True
-                    break  # Stop checking this user
+                    break  # Stop checking this space user
                 
             if skip_user:
                 removed_user = True
             else:
+                # Add this space user into the new list of users because
+                # it didn't match the remove list.
                 remaining_member_list.append({ 'name' : space_user["name"], 'type' : space_user["type"] })
         
         if removed_user:
@@ -894,17 +899,17 @@ class DWCSession:
 
     def put_space(self, space):
         # We are expecting a space object, do a quick sanity check.
-        space_name = self.get_space_name(space)
+        space_id = self.get_space_id(space)
         
-        if space_name is None or "spaceDefinition" not in space[space_name]:
+        if space_id is None or "spaceDefinition" not in space[space_id]:
             logger.error("put_space: invalid space passed")
             return
         
         url = self.get_url("space")
-        url = url.format(**{ "space_name" : space_name })
+        url = url.format(**{ "spaceID" : space_id })
 
         self.put(url, json.dumps(space, separators=(',', ':')))
-        
+
     def spaces_delete_cli(self, space_id):
         utility.start_timer("spaces_delete_cli")
 
@@ -1004,15 +1009,15 @@ class DWCSession:
         valid_space_id = re.sub("[\W]","", valid_space_id)
 
         if len(valid_space_id) == 0 or len(valid_space_id) > 20:
-            logger.error("validate_space_id: {} is invalid and can't be fixed.".format(space_id))
+            logger.error(f"validate_space_id: {space_id} is invalid and can't be fixed.")
             return None
         
         if len(valid_space_id) > 3 and valid_space_id[0:4] in prefixes:
-            logger.error("validate_space_id: {} may not start with _SYS, DWC_, or SAP_".format(space_id))
+            logger.error(f"validate_space_id: {space_id} may not start with _SYS, DWC_, or SAP_")
             return None
 
         if space_id in reserved:
-            logger.error("validate_space_id: {} is a reserved word.".format(space_id))
+            logger.error(f"validate_space_id: {space_id} is a reserved word.")
             return None
 
         return valid_space_id
@@ -1054,13 +1059,13 @@ class DWCSession:
             logger.error("write_space_json: did not receive a dict object.")
             return
 
-        space_name = next(iter(space))  # Get the first attribute - should be the space_id
+        space_id = next(iter(space))  # Get the first attribute - should be the space_id
 
-        if "spaceDefinition" not in space[space_name]:
+        if "spaceDefinition" not in space[space_id]:
             logger.error("write_space_json: invalid JSON passed - spaceDefinition attribute missing.")
             return
             
-        utility.write_json(space_name, space)
+        utility.write_json(space_id, space)
 
     def get_json(self, url_name, values={}):
         t0 = time.perf_counter()

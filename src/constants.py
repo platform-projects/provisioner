@@ -2,8 +2,8 @@ CONST_GIGABYTE = 1000000000
 CONST_DEFAULT_SPACE_STORAGE = 1 * CONST_GIGABYTE
 CONST_DEFAULT_SPACE_MEMORY = int(.5 * CONST_GIGABYTE)
 
-CONST_SPACE_NAME = 0
-CONST_LABEL = 1
+CONST_SPACE_ID = 0
+CONST_BUSINESS = 1
 CONST_DISK = 2
 CONST_MEMORY = 3
 CONST_TEMPLATE = 4
@@ -120,10 +120,22 @@ templates = {
       "fields" : {
         "space_name" : { "path" : "$.space_name", "format" : "30s" },
         "user_name"  : { "path" : "$.name",       "format" : "30s" },
-        "user_type"  : { "path" : "$.type",       "format" : "30s" }
+        "user_type"  : { "path" : "$.type",       "format" : "10s" },
+        "user_email" : { "path" : "$.email",      "format" : "30s" }
       },
       "rows" : [
-        { "type" : "row", "layout" : "{space_name} {user_name} {user_type}" },
+        { "type" : "row", "layout" : "{space_name} {user_name} {user_email} {user_type}" },
+      ]
+    },
+    "connections" : {
+      "fields" : {
+        "space_name"    : { "path" : "$.space_name",        "format" : "30s" },
+        "business_name" : { "path" : "$.businessName",      "format" : "30s" },
+        "type_id"       : { "path" : "$.typeId",            "format" : "20s" },
+        "mod_date"      : { "path" : "$.modification_date", "format" : "35s" }
+      },
+      "rows" : [
+        { "type" : "row", "layout" : "{space_name} {business_name} {type_id} {mod_date}" },
       ]
     }
 

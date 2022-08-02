@@ -16,8 +16,8 @@ def process(share_args):
         shares_list(share_args)
     elif share_args.subcommand == "create":
         shares_create(share_args)
-    elif share_args.subcommand == "delete":
-        shares_list(share_args)
+    elif share_args.subcommand == "remove":
+        shares_remove(share_args)
     else:
         logger.error(f"process: unexpected subcommand: {share_args.subcommand}")
 
@@ -30,11 +30,9 @@ def shares_list(share_args):
     writer.write_list(shares, share_args)
     
 def shares_create(share_args):
-    # NOTE: We DO NOT validate the object to share - the
-    # share operation will report any error.
+    # NOTE: We DO NOT validate the object to share - the share operation reports any errors.
 
-    # Verify the source space exists - the space must exist and not be a
-    # wildcard search.
+    # Verify the source space exists - the space must exist and not be a wildcard search.
     
     source_space = session_config.dwc.get_space(share_args.sourceSpace)
 
@@ -42,8 +40,8 @@ def shares_create(share_args):
         logger.error(f"shares_create: source space {share_args.sourceSpace} not found")
         return
 
-    # The user can provide multiple spaces, build the list.
-    target_spaces = session_config.dwc.query_spaces(share_args.targetSpace)
+    # The user can provide multiple target spaces, build the list.
+    target_spaces = session_config.dwc.query_spaces(share_args.targetSpace, query=share_args.query)
 
     if len(target_spaces) == 0:
         logger.error("shares_create: target space(s) not found")
@@ -51,6 +49,6 @@ def shares_create(share_args):
 
     session_config.dwc.add_share(share_args.sourceSpace, share_args.sourceObject, target_spaces)
 
-def shares_delete(share_args):
+def shares_remove(share_args):
     # TODO - Add the functionality
     x = 1
